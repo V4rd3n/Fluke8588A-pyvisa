@@ -1,11 +1,11 @@
-from instrument_controller import InstrumentController as InstrumentController 
-from main_window import MainWindow
-from dc_measurment_setup import DcMeasurmentWindow
-from trigger_setup import TriggerWindow
-from settings import DcvSettings, DciSettings, OhmsSettings
-from measurment_controller import ReadingThread
-from translator import Translator
-import config, json
+from src.Fluke8588A.instrument_controller import InstrumentController as InstrumentController 
+from src.Fluke8588A.main_window import MainWindow
+from src.Fluke8588A.dc_measurment_setup import DcMeasurmentWindow
+from src.Fluke8588A.trigger_setup import TriggerWindow
+from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
+from src.Fluke8588A.measurment_controller import ReadingThread
+from src.Fluke8588A.translator import Translator
+import src.Fluke8588A.config as config, json
 class AppController:
 	TEST_MODE = True  # Set to False to disable debug output
 	

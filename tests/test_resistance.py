@@ -1,6 +1,6 @@
 import logging
-from Fluke8588A import Fluke8588A
-from config import InstrumentConfig
+from src.Fluke8588A.Fluke8588A import Fluke8588A
+from src.Fluke8588A.config import InstrumentConfig
 
 logging.basicConfig(
     level=logging.INFO,

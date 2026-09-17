@@ -1,8 +1,8 @@
-from Fluke8588A import Fluke8588A
+from src.Fluke8588A.Fluke8588A import Fluke8588A
 from typing import Optional, TYPE_CHECKING
 import logging
-from config import InstrumentConfig
-from settings import DcvSettings, DciSettings, OhmsSettings
+from src.Fluke8588A.config import InstrumentConfig
+from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
 
 
 class InstrumentController:
@@ -165,7 +165,7 @@ class InstrumentController:
             raise RuntimeError("Cannot set mode: not connected to instrument")
         
         if mode == "DCV":
-            from app_controller import DcvSettings
+            from src.Fluke8588A.app_controller import DcvSettings
             
             root = InstrumentConfig.ROOT_DCV
             
@@ -236,7 +236,7 @@ class InstrumentController:
             
             return actual_settings
         elif mode == 'DCI':
-            from app_controller import DciSettings
+            from src.Fluke8588A.app_controller import DciSettings
                 
             root = InstrumentConfig.ROOT_DCI
             
