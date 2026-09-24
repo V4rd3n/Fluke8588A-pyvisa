@@ -8,7 +8,6 @@ import src.Fluke8588A.config as config
 from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
 from src.Fluke8588A.plot_widget import DmmPlotWidget
 main_window_loc = os.path.join(os.path.dirname(__file__), "ui", "mainwindow.ui")
-
 class MainWindow(QMainWindow):
 	
 	init_requested = pyqtSignal()

@@ -24,6 +24,7 @@ class Fluke8588A():
 	setApertureMode(root, value) / getApertureMode(root) : set/get aperture mode ("AUTO", "FAST", or "MAN")
 	"""
 
+	# only GPIB support
 	def __init__(self, address):
 		logging.info(__name__ + ' : Initializing instrument Fluke 8588A')
 		self.is_connected = False
@@ -37,7 +38,8 @@ class Fluke8588A():
 	def __connect(self, address): #private to be only used by init
 		rm = pyvisa.ResourceManager()
 		self._address = address
-		self._instr = rm.open_resource(InstrumentConfig.GPIB_PREFIX + str(self._address) + InstrumentConfig.GPIB_SUFFIX)
+		#self._instr = rm.open_resource(InstrumentConfig.GPIB_PREFIX + str(self._address) + InstrumentConfig.GPIB_SUFFIX)
+		self._instr = rm.open_resource("USB0::3966::32777::651684161::0::INSTR")
 		self.is_connected = True
 		
 	def identify(self):
@@ -203,8 +205,14 @@ class Fluke8588A():
 		self.setTime(root, time_val)
 		self.setApertureMode(root, aperture_mode)
 
-	def init_trigger(self):
-		pass
+	# dinamico in base a source, probabile switch state
+	def init_trigger_base(self, event, count, ecount, delay, holdoff):
+		root = InstrumentConfig.ROOT_TRIGGER
+		self.setReset(root)
+		self.setCount(root, count)
+		self.setCount(root, ecount)
+		self.setDelay(root, delay)
+		self.setHoldoff(root, holdoff)
 
 
 	def getApertureMode(self, root):
@@ -525,12 +533,36 @@ class Fluke8588A():
 		self.write(f"{root}:COUPling:SIGNal {value}")
 		return self.getCouplingSignal(root)
 	
-	#TRIGGER ARM1 ARM2
+	#IMMEDIATE
+	def getContinuos(self, root):
+		return self.query(f"{root}:CONT?")
+	def setContinuos(self, root, state:bool):
+			return self.write(f"{root}:CONT {state}")
+
+	def getEpochStart(self, root):
+		return self.query(f"{root}:EPOC:STAR?")
+	def setEpochStart(self, root, date:str):
+		return self.write(f"{root}:EPOC:STAR {date}")
+
+	def getEpochStop(self, root):
+		return self.query(f"{root}:EPOC:STOP?")
+	def setEpochStop(self, root, date:str):
+		return self.write(f"{root}:EPOC:STOP {date}")
+
+	def setImmediate(self, root):
+		return self.write(f"{root}")
+	
+	#ARM1 ARM2
 	def getCount(self, root):
 		return self.query(f"{root}:COUNt?")
 	def setCount(self, root, value):
 		self.write(f"{root}:COUNt {value}")
 		return self.getCount(root)
+
+	def getCoupling(self, root):
+		return self.query(f"{root}:COUP?")
+	def setCoupling(self, root, coupling:str):
+		return self.write(f"{root}:COUP {coupling}")
 	
 	def getDelay(self, root):
 		return self.query(f"{root}:DELay?")
@@ -556,17 +588,10 @@ class Fluke8588A():
 		self.write(f"{root}:EXTernal {value}")
 		return self.getExternal(root)
 
-	def getHoldoffAuto(self, root):
-		return self.query(f"{root}:HOLDoff:AUTO?")
-	def setHoldoffAuto(self, root, value):
-		self.write(f"{root}:HOLDoff:AUTO {value}")
-		return self.getHoldoffAuto(root)
-
-	def getHoldoff(self, root):
-		return self.query(f"{root}:HOLDoff?")
-	def setHoldoff(self, root, value):
-		self.write(f"{root}:HOLDoff {value}")
-		return self.getHoldoff(root)
+	def getFilter(self, root):
+		return self.query(f"{root}:FILT?")
+	def getFilter(self, root, filter:bool):
+		return self.write(f"{root}:FILT {filter}")
 
 	def setImmediate(self, root):
 		self.write(f"{root}:IMMediate")
@@ -600,6 +625,22 @@ class Fluke8588A():
 	def setTimer(self, root, value):
 		self.write(f"{root}:TIMer {value}")
 		return self.getTimer(root)
+
+	# TRIGGER 
+	def getHoldoffAuto(self, root):
+		return self.query(f"{root}:HOLDoff:AUTO?")
+	def setHoldoffAuto(self, root, value):
+		self.write(f"{root}:HOLDoff:AUTO {value}")
+		return self.getHoldoffAuto(root)
+
+	def getHoldoff(self, root):
+		return self.query(f"{root}:HOLDoff?")
+	def setHoldoff(self, root, value):
+		self.write(f"{root}:HOLDoff {value}")
+		return self.getHoldoff(root)
+
+	def setReset(self, root):
+		return self.write(f"{root}:RES")
 	
 
 	#ZERO
