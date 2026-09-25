@@ -1,5 +1,5 @@
 from src.Fluke8588A.data.spin_box_values import *
-from src.Fluke8588A.config import InstrumentConfig as _inst_conf
+from src.Fluke8588A.instrument.config import InstrumentConfig as _inst_conf
 class Translator:
     def __init__(self):
         """Initialize the translator with mapping dictionaries keyed by parameter type."""

@@ -3,7 +3,7 @@ from typing import Optional
 import logging
 import random
 import time
-from src.Fluke8588A.config import InstrumentConfig
+from src.Fluke8588A.instrument.config import InstrumentConfig
 from src.Fluke8588A.data.settings import DcvSettings
 
 class InstrumentControllerTest:

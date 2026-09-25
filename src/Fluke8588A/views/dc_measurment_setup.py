@@ -3,7 +3,7 @@ from PyQt6.QtCore import pyqtSignal
 from src.Fluke8588A.data.spin_box_values import get_min_time, get_max_time, get_min_nplc, get_max_nplc, get_hz
 from PyQt6.QtWidgets import QWidget
 import os
-dc_measurment_setup_loc = os.path.join(os.path.dirname(__file__), "ui", "dc_measurment_setup.ui")
+dc_measurment_setup_loc = os.path.join(os.path.dirname(__file__), "..", "ui", "dc_measurment_setup.ui")
 
 class DcMeasurmentWindow(QWidget):
 	mode_select=pyqtSignal(str)

@@ -1,4 +1,4 @@
-from src.Fluke8588A.config import InstrumentConfig
+from src.Fluke8588A.instrument.config import InstrumentConfig
 # UI display lists — what gets shown in combo boxes and spinboxes
 # These are the values the user sees and selects in the interface.
 # Instrument validation lives in InstrumentConfig, not here.

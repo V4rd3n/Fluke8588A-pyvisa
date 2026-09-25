@@ -437,7 +437,7 @@
   <customwidget>
    <class>DmmPlotWidget</class>
    <extends>QWidget</extends>
-    <header>src.Fluke8588A.plot_widget</header>
+    <header>src.Fluke8588A.views.plot_widget</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

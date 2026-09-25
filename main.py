@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QApplication
-from src.Fluke8588A.app_controller import AppController
+from src.Fluke8588A.controllers.app_controller import AppController
 import sys
 
 def main():

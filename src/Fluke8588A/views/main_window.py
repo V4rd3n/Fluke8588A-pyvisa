@@ -3,11 +3,11 @@ from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QMainWindow
 import os, json
 from src.Fluke8588A.data.spin_box_values import get_functions, get_dcv_range, get_dci_range, get_dcv_impedence, get_dc_digit_val, get_ohm_modes, get_ohm_range
-from src.Fluke8588A.config import InstrumentConfig
-import src.Fluke8588A.config as config 
+from src.Fluke8588A.instrument.config import InstrumentConfig
+import src.Fluke8588A.instrument.config as config 
 from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
-from src.Fluke8588A.plot_widget import DmmPlotWidget
-main_window_loc = os.path.join(os.path.dirname(__file__), "ui", "mainwindow.ui")
+from src.Fluke8588A.views.plot_widget import DmmPlotWidget
+main_window_loc = os.path.join(os.path.dirname(__file__), "..", "ui", "mainwindow.ui")
 class MainWindow(QMainWindow):
 	
 	init_requested = pyqtSignal()
