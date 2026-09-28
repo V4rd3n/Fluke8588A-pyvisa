@@ -7,13 +7,11 @@ class ReadingThread(QThread):
         self._running = False
     
     def run(self):
-        self._instr_ctrl.write("INIT:CONT ON")
         self._running=True
         while self._running:
-            value = self._instr_ctrl.query("FETCH?")
+            value = self._instr_ctrl.read()
             self.reading_ready.emit(value.strip()) #might be a number, remove strip in case
 
     def stop(self):
-        self._instr_ctrl.write("ABORT")
         self._running= False
         self.wait() #waits for thread to finish

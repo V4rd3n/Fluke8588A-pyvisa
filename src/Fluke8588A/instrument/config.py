@@ -15,6 +15,13 @@ class InstrumentConfig:
     ROOT_ACV = ":VOLT:AC"
     ROOT_RESISTANCE = ":RESistance"
     ROOT_FRESISTANCE=":FRESistance"
+    ROOT_DIGICURRENT=":DIG:CURR"
+    ROOT_DIGIVOLTAGE=":DIG:VOLT"
+    # Trigger
+    ROOT_INITIATE = ":INIT"
+    ROOT_ARM1 = ":ARM:LAY1"
+    ROOT_ARM2 = ":ARM:LAY2"
+    ROOT_TRIGGER = ":TRIG"
     RANGE_MODE_AUTO = 1
     RANGE_MODE_MAN = 0
     RANGE_MODE_AUTO_STR = "AUTO"
@@ -35,5 +42,7 @@ class InstrumentConfig:
     OHM_MODES_VAL = ["NORM", "NORM", "TRUE","HIV", "HIV"]
     IMPEDANCES_DCV_VAL = ["AUTO", "10M", "1M"]
 
+    #trigger valid values
+    COUPLING = ["DC", "AC"]
 JSON_GUI_FILE_NAME = ".gui_settings.json"
 JSON_CNTRL_FILE_NAME =  ".cntrl_settings.json"

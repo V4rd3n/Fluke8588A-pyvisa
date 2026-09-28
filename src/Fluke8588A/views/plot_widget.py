@@ -1,6 +1,7 @@
 import pyqtgraph as pg
 import random
 from PyQt6 import QtCore
+
 class DmmPlotWidget(pg.PlotWidget):
 
 	def __init__(self, parent=None):

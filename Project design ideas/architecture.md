@@ -6,29 +6,36 @@
 graph TD
     main["main.py\nENTRY"]
 
-    subgraph controllers ["Controllers"]
+    subgraph controllers ["src/Fluke8588A/controllers/"]
         app_ctrl["app_controller.py\nAppController"]
         instr_ctrl["instrument_controller.py\nInstrumentController"]
-        meas_ctrl["measurement_controller.py\nMeasurementController"]
+        meas_ctrl["measurment_controller.py\nReadingThread"]
     end
 
-    subgraph views ["Views"]
+    subgraph views ["src/Fluke8588A/views/"]
         main_win["main_window.py\nMainWindow"]
-        setup_dlg["setup_dialog.py\nSetupDialog"]
+        setup_dlg["dc_measurment_setup.py\nDcMeasurmentWindow"]
+        plot["plot_widget.py\nDmmPlotWidget"]
     end
 
-    subgraph ui_files ["ui/  (Qt Designer files)"]
-        mainwindow_ui["ui/mainwindow.ui"]
-        meassetup_ui["ui/measSetupDC.ui"]
+    subgraph ui_files ["src/Fluke8588A/ui/  (Qt Designer files)"]
+        mainwindow_ui["mainwindow.ui"]
+        meassetup_ui["dc_measurment_setup.ui"]
+        trigger_ui["trigger.ui"]
     end
 
-    subgraph hardware ["Hardware"]
-        fluke["fluke8588A.py\nFluke8588A"]
-    end
-
-    subgraph data ["Config / Data"]
+    subgraph hardware ["src/Fluke8588A/instrument/"]
+        fluke["Fluke8588A.py\nFluke8588A"]
         config["config.py\nInstrumentConfig"]
-        sbv["spinbox_values.py\nSpinBoxValues"]
+    end
+
+    subgraph services ["src/Fluke8588A/services/"]
+        translator["translator.py\nTranslator"]
+    end
+
+    subgraph data ["src/Fluke8588A/data/"]
+        settings["settings.py\nMeasurement settings"]
+        sbv["spin_box_values.py\nSpinBoxValues"]
     end
 
     main --> app_ctrl
@@ -43,6 +50,10 @@ graph TD
     main_win --> sbv
     fluke --> config
     sbv --> config
+    app_ctrl --> translator
+    app_ctrl --> settings
+    main_win --> settings
+    main_win --> plot
 
     main_win -- "uic.loadUi()" --> mainwindow_ui
     setup_dlg -- "uic.loadUi()" --> meassetup_ui

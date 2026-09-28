@@ -1,11 +1,11 @@
-from instrument_controller import InstrumentController as InstrumentController 
-from main_window import MainWindow
-from dc_measurment_setup import DcMeasurmentWindow
-from trigger_setup import TriggerWindow
-from settings import DcvSettings, DciSettings, OhmsSettings
-from measurment_controller import ReadingThread
-from translator import Translator
-import config, json
+from src.Fluke8588A.controllers.instrument_controller import InstrumentController as InstrumentController 
+from src.Fluke8588A.views.main_window import MainWindow  
+from src.Fluke8588A.views.dc_measurment_setup import DcMeasurmentWindow
+from src.Fluke8588A.views.trigger_setup import TriggerWindow
+from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings, TriggerBaseSettings
+from src.Fluke8588A.controllers.measurement_controller import ReadingThread
+from src.Fluke8588A.services.translator import Translator
+import src.Fluke8588A.instrument.config as config, json
 class AppController:
 	TEST_MODE = True  # Set to False to disable debug output
 	
@@ -39,6 +39,16 @@ class AppController:
 			low_i=False,
 			aperture_mode="AUTO",
 			time=0.1
+		)
+		self._trigger_base_settings = TriggerBaseSettings(
+			source="IMMediate",
+			count=1,
+			delay=0.0,
+			delay_auto=True,
+			holdoff=0.0,
+			holdoff_auto=True,
+			timer=None,
+			ext_edge=None
 		)
 		
 		self._connect_signals()

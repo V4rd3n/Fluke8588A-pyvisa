@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Optional
 
 @dataclass
 class DcvSettings:
@@ -30,13 +31,16 @@ class OhmsSettings:
 
 #TO DO, check the bellow
 @dataclass
-class TriggerLayerSettings:
-    source:     str   = "IMMediate"
-    count:      int   = 1
-    delay:      float = 0.0
-    delay_auto: bool  = True
-    timer:      float = 0.002   #2ms default, only used when source=TIMer
-
+class TriggerBaseSettings:
+    source:     str
+    count:      int
+    delay:      float
+    delay_auto: bool
+    holdoff:    float
+    holdoff_auto: bool
+    timer:      Optional[float]
+    ext_edge:   Optional[str]
+'''
 @dataclass
 class TriggerSettings:
     init_cont:    bool  = False
@@ -47,3 +51,4 @@ class TriggerSettings:
     holdoff_auto: bool  = True
     ext_edge:     str   = "NEGative"
     ext_type:     str   = "TTL"
+'''

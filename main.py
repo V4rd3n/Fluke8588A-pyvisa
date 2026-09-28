@@ -1,7 +1,12 @@
 from PyQt6.QtWidgets import QApplication
-from app_controller import AppController
+from src.Fluke8588A.controllers.app_controller import AppController
 import sys
 
-app = QApplication(sys.argv)
-app_controller = AppController()
-app.exec()
+def main():
+    app = QApplication(sys.argv)
+    app_controller = AppController()
+    app.exec()
+
+
+if __name__ == "__main__":
+    main()
