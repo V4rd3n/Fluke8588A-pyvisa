@@ -3,7 +3,7 @@ from src.Fluke8588A.views.main_window import MainWindow
 from src.Fluke8588A.views.dc_measurment_setup import DcMeasurmentWindow
 from src.Fluke8588A.views.trigger_setup import TriggerWindow
 from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings, TriggerBaseSettings
-from src.Fluke8588A.controllers.measurment_controller import ReadingThread
+from src.Fluke8588A.controllers.measurement_controller import ReadingThread
 from src.Fluke8588A.services.translator import Translator
 import src.Fluke8588A.instrument.config as config, json
 class AppController:
