@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>643</width>
-    <height>611</height>
+    <width>461</width>
+    <height>540</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
@@ -26,27 +32,27 @@
        </attribute>
        <layout class="QGridLayout" name="gridLayout_2">
         <item row="1" column="0">
-         <widget class="QGroupBox" name="trig_groupBox">
+         <widget class="QGroupBox" name="trig_groupbox">
           <property name="title">
            <string>Trigger</string>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_2">
            <item>
-            <widget class="QPushButton" name="tbase_button">
+            <widget class="QPushButton" name="trig_base_pushbutton">
              <property name="text">
               <string>Base Trigger Settings</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="tadv_button">
+            <widget class="QPushButton" name="trig_adv_pushbutton">
              <property name="text">
               <string>Advanced Trigger Settings</string>
              </property>
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="treset_button">
+            <widget class="QPushButton" name="trig_reset_pushbutton">
              <property name="text">
               <string>Reset</string>
              </property>
@@ -69,13 +75,13 @@
          </widget>
         </item>
         <item row="2" column="0">
-         <widget class="QGroupBox" name="oper_groupBox">
+         <widget class="QGroupBox" name="func_groupbox">
           <property name="title">
-           <string>Operation</string>
+           <string>Functions</string>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_3">
            <item>
-            <widget class="QComboBox" name="op_comboBox">
+            <widget class="QComboBox" name="op_combobox">
              <property name="minimumSize">
               <size>
                <width>150</width>
@@ -85,7 +91,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="opopen_button">
+            <widget class="QPushButton" name="funcopen_pushbutton">
              <property name="text">
               <string>Open</string>
              </property>
@@ -108,7 +114,7 @@
          </widget>
         </item>
         <item row="0" column="0">
-         <widget class="QGroupBox" name="init_groupBox">
+         <widget class="QGroupBox" name="init_groupbox">
           <property name="title">
            <string>Initialize</string>
           </property>
@@ -125,7 +131,7 @@
              <item>
               <layout class="QHBoxLayout" name="horizontalLayout">
                <item>
-                <widget class="QPushButton" name="scan_button">
+                <widget class="QPushButton" name="scan_pushbutton">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                    <horstretch>0</horstretch>
@@ -145,7 +151,7 @@
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="connect_button">
+                <widget class="QPushButton" name="connect_pushbutton">
                  <property name="enabled">
                   <bool>false</bool>
                  </property>
@@ -191,7 +197,7 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
-         <widget class="QGroupBox" name="groupBox">
+         <widget class="QGroupBox" name="dcv_sett_groupbox">
           <property name="title">
            <string>Settings</string>
           </property>
@@ -206,7 +212,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox"/>
+              <widget class="QComboBox" name="dcv_range_combobox"/>
              </item>
             </layout>
            </item>
@@ -220,7 +226,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QSpinBox" name="spinBox"/>
+              <widget class="QSpinBox" name="dcv_resol_spinbox"/>
              </item>
             </layout>
            </item>
@@ -234,25 +240,25 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_2"/>
+              <widget class="QComboBox" name="dcv_imp_combobox"/>
              </item>
             </layout>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox_2">
+            <widget class="QGroupBox" name="dcv_meas_groupbox">
              <property name="title">
               <string>Measurement Setup</string>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_6">
               <item>
-               <widget class="QRadioButton" name="radioButton_3">
+               <widget class="QRadioButton" name="dcv_auto_radiobutton">
                 <property name="text">
                  <string>AUTO</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QRadioButton" name="radioButton_4">
+               <widget class="QRadioButton" name="dcv_autofast_radiobutton">
                 <property name="text">
                  <string>AUTO FAST</string>
                 </property>
@@ -261,7 +267,7 @@
               <item>
                <layout class="QHBoxLayout" name="horizontalLayout_9">
                 <item>
-                 <widget class="QRadioButton" name="radioButton_5">
+                 <widget class="QRadioButton" name="dcv_man_radiobutton">
                   <property name="text">
                    <string>MANUAL</string>
                   </property>
@@ -277,7 +283,7 @@
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="doubleSpinBox_2"/>
+                   <widget class="QDoubleSpinBox" name="dcv_plc_spinbox"/>
                   </item>
                  </layout>
                 </item>
@@ -291,7 +297,7 @@
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="doubleSpinBox_3"/>
+                   <widget class="QDoubleSpinBox" name="dcv_time_spinbox"/>
                   </item>
                  </layout>
                 </item>
@@ -306,14 +312,14 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_4">
           <item>
-           <widget class="QPushButton" name="pushButton_2">
+           <widget class="QPushButton" name="dcv_start_pushbutton">
             <property name="text">
              <string>Start</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_3">
+           <widget class="QPushButton" name="dcv_stop_pushbutton">
             <property name="text">
              <string>Stop</string>
             </property>
@@ -355,7 +361,7 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_10">
         <item>
-         <widget class="QGroupBox" name="groupBox_9">
+         <widget class="QGroupBox" name="acv_sett_groupbox">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -376,7 +382,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_9"/>
+              <widget class="QComboBox" name="acv_range_combobox"/>
              </item>
             </layout>
            </item>
@@ -390,7 +396,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QSpinBox" name="spinBox_5"/>
+              <widget class="QSpinBox" name="acv_resol_spinbox"/>
              </item>
             </layout>
            </item>
@@ -410,14 +416,14 @@
               </widget>
              </item>
              <item>
-              <widget class="QRadioButton" name="radioButton">
+              <widget class="QRadioButton" name="acv_wide_radiobutton">
                <property name="text">
                 <string>Wideband</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QRadioButton" name="radioButton_2">
+              <widget class="QRadioButton" name="acv_ext_radiobutton">
                <property name="text">
                 <string>Extended HF</string>
                </property>
@@ -435,12 +441,12 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_10"/>
+              <widget class="QComboBox" name="acv_filter_combobox"/>
              </item>
             </layout>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox_10">
+            <widget class="QGroupBox" name="acv_meas_groupbox">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -461,7 +467,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_3"/>
+                 <widget class="QComboBox" name="acv_couimp_combobox"/>
                 </item>
                </layout>
               </item>
@@ -475,7 +481,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_4"/>
+                 <widget class="QComboBox" name="acv_secread_combobox"/>
                 </item>
                </layout>
               </item>
@@ -495,17 +501,23 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_9">
+                 <widget class="QRadioButton" name="acv_ac_radiobutton">
                   <property name="text">
                    <string>AC</string>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup</string>
+                  </attribute>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_8">
+                 <widget class="QRadioButton" name="acv_dc_radiobutton">
                   <property name="text">
                    <string>DC</string>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup</string>
+                  </attribute>
                  </widget>
                 </item>
                </layout>
@@ -526,17 +538,23 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_7">
+                 <widget class="QRadioButton" name="acv_off_radiobutton">
                   <property name="text">
                    <string>OFF</string>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_2</string>
+                  </attribute>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_6">
+                 <widget class="QRadioButton" name="acv_on_radiobutton">
                   <property name="text">
                    <string>ON</string>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_2</string>
+                  </attribute>
                  </widget>
                 </item>
                </layout>
@@ -551,7 +569,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_5"/>
+                 <widget class="QComboBox" name="acv_count_combobox"/>
                 </item>
                </layout>
               </item>
@@ -565,7 +583,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_6"/>
+                 <widget class="QComboBox" name="acv_pktpk_combobox"/>
                 </item>
                </layout>
               </item>
@@ -578,14 +596,14 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_17">
           <item>
-           <widget class="QPushButton" name="pushButton_5">
+           <widget class="QPushButton" name="acv_start_pushbutton">
             <property name="text">
              <string>Start</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_4">
+           <widget class="QPushButton" name="acv_stop_pushbutton">
             <property name="text">
              <string>Stop</string>
             </property>
@@ -627,7 +645,7 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_41">
         <item>
-         <widget class="QGroupBox" name="groupBox_11">
+         <widget class="QGroupBox" name="dci_sett_groupbox">
           <property name="title">
            <string>Settings</string>
           </property>
@@ -642,7 +660,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_11"/>
+              <widget class="QComboBox" name="dci_range_combobox"/>
              </item>
             </layout>
            </item>
@@ -656,25 +674,25 @@
               </widget>
              </item>
              <item>
-              <widget class="QSpinBox" name="spinBox_6"/>
+              <widget class="QSpinBox" name="dci_resol_spinbox"/>
              </item>
             </layout>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox_12">
+            <widget class="QGroupBox" name="dci_meas_groupbox">
              <property name="title">
               <string>Measurement Setup</string>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_38">
               <item>
-               <widget class="QRadioButton" name="radioButton_18">
+               <widget class="QRadioButton" name="dci_auto_radiobutton">
                 <property name="text">
                  <string>AUTO</string>
                 </property>
                </widget>
               </item>
               <item>
-               <widget class="QRadioButton" name="radioButton_19">
+               <widget class="QRadioButton" name="dci_autofast_radiobutton">
                 <property name="text">
                  <string>AUTO FAST</string>
                 </property>
@@ -683,7 +701,7 @@
               <item>
                <layout class="QHBoxLayout" name="horizontalLayout_40">
                 <item>
-                 <widget class="QRadioButton" name="radioButton_20">
+                 <widget class="QRadioButton" name="dci_man_radiobutton">
                   <property name="text">
                    <string>MANUAL</string>
                   </property>
@@ -699,7 +717,7 @@
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="doubleSpinBox_12"/>
+                   <widget class="QDoubleSpinBox" name="dci_plc_spinbox"/>
                   </item>
                  </layout>
                 </item>
@@ -713,7 +731,7 @@
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="doubleSpinBox_13"/>
+                   <widget class="QDoubleSpinBox" name="dci_time_spinbox"/>
                   </item>
                  </layout>
                 </item>
@@ -728,14 +746,14 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_41">
           <item>
-           <widget class="QPushButton" name="pushButton_10">
+           <widget class="QPushButton" name="dci_start_pushbutton">
             <property name="text">
              <string>Start</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton">
+           <widget class="QPushButton" name="dci_stop_pushbutton">
             <property name="text">
              <string>Stop</string>
             </property>
@@ -777,7 +795,7 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_11">
         <item>
-         <widget class="QGroupBox" name="groupBox_13">
+         <widget class="QGroupBox" name="aci_sett_groupbox">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -798,7 +816,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_12"/>
+              <widget class="QComboBox" name="aci_range_combobox"/>
              </item>
             </layout>
            </item>
@@ -812,7 +830,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QSpinBox" name="spinBox_7"/>
+              <widget class="QSpinBox" name="aci_resol_spinbox"/>
              </item>
             </layout>
            </item>
@@ -826,12 +844,12 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_13"/>
+              <widget class="QComboBox" name="aci_filter_combobox"/>
              </item>
             </layout>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox_14">
+            <widget class="QGroupBox" name="aci_meas_groupbox">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -846,13 +864,30 @@
                <layout class="QHBoxLayout" name="horizontalLayout_19">
                 <item>
                  <widget class="QLabel" name="label_15">
+                  <property name="sizePolicy">
+                   <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+                    <horstretch>0</horstretch>
+                    <verstretch>0</verstretch>
+                   </sizepolicy>
+                  </property>
                   <property name="text">
-                   <string>Signal path coupling, impedance</string>
+                   <string>Signal path coupling (impedance AUTO)</string>
                   </property>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_7"/>
+                 <widget class="QRadioButton" name="aci_sac_radiobutton">
+                  <property name="text">
+                   <string>AC</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QRadioButton" name="aci_sdc_radiobutton">
+                  <property name="text">
+                   <string>DC</string>
+                  </property>
+                 </widget>
                 </item>
                </layout>
               </item>
@@ -866,7 +901,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_8"/>
+                 <widget class="QComboBox" name="aci_secread_combobox"/>
                 </item>
                </layout>
               </item>
@@ -886,17 +921,23 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_12">
+                 <widget class="QRadioButton" name="aci_fac_radiobutton">
                   <property name="text">
                    <string>AC</string>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_3</string>
+                  </attribute>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_13">
+                 <widget class="QRadioButton" name="aci_fdc_radiobutton">
                   <property name="text">
                    <string>DC</string>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_3</string>
+                  </attribute>
                  </widget>
                 </item>
                </layout>
@@ -917,17 +958,23 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_14">
+                 <widget class="QRadioButton" name="aci_off_radiobutton">
                   <property name="text">
                    <string>OFF</string>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_4</string>
+                  </attribute>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_15">
+                 <widget class="QRadioButton" name="aci_on_radiobutton">
                   <property name="text">
                    <string>ON</string>
                   </property>
+                  <attribute name="buttonGroup">
+                   <string notr="true">buttonGroup_4</string>
+                  </attribute>
                  </widget>
                 </item>
                </layout>
@@ -942,7 +989,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_14"/>
+                 <widget class="QComboBox" name="aci_count_combobox"/>
                 </item>
                </layout>
               </item>
@@ -956,7 +1003,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_15"/>
+                 <widget class="QComboBox" name="aci_pktpk_combobox"/>
                 </item>
                </layout>
               </item>
@@ -966,14 +1013,14 @@
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_25">
              <item>
-              <widget class="QPushButton" name="pushButton_6">
+              <widget class="QPushButton" name="aci_start_pushbutton">
                <property name="text">
                 <string>Start</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_7">
+              <widget class="QPushButton" name="aci_stop_pushbutton">
                <property name="text">
                 <string>Stop</string>
                </property>
@@ -1018,7 +1065,7 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_12">
         <item>
-         <widget class="QGroupBox" name="groupBox_15">
+         <widget class="QGroupBox" name="ohm_sett_groupbox">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -1039,7 +1086,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_16"/>
+              <widget class="QComboBox" name="ohms_range_combobox"/>
              </item>
             </layout>
            </item>
@@ -1053,7 +1100,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QSpinBox" name="spinBox_8"/>
+              <widget class="QSpinBox" name="ohms_resol_spinbox"/>
              </item>
             </layout>
            </item>
@@ -1067,7 +1114,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_17"/>
+              <widget class="QComboBox" name="ohms_mode_combobox"/>
              </item>
             </layout>
            </item>
@@ -1087,14 +1134,14 @@
               </widget>
              </item>
              <item>
-              <widget class="QRadioButton" name="radioButton_10">
+              <widget class="QRadioButton" name="ohms_loloff_radiobutton">
                <property name="text">
                 <string>OFF</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QRadioButton" name="radioButton_11">
+              <widget class="QRadioButton" name="ohms_lolon_radiobutton">
                <property name="text">
                 <string>ON</string>
                </property>
@@ -1103,26 +1150,26 @@
             </layout>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox_4">
+            <widget class="QGroupBox" name="ohms_meas_groupbox">
              <property name="title">
               <string>Measurement Setup</string>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_17">
               <item>
-               <widget class="QGroupBox" name="groupBox_3">
+               <widget class="QGroupBox" name="ohms_plc_groupbox">
                 <property name="title">
                  <string>Aperture/PLC</string>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_13">
                  <item>
-                  <widget class="QRadioButton" name="radioButton_16">
+                  <widget class="QRadioButton" name="ohms_auto_radiobutton">
                    <property name="text">
                     <string>AUTO</string>
                    </property>
                   </widget>
                  </item>
                  <item>
-                  <widget class="QRadioButton" name="radioButton_17">
+                  <widget class="QRadioButton" name="ohms_autofast_radiobutton">
                    <property name="text">
                     <string>AUTO FAST</string>
                    </property>
@@ -1131,7 +1178,7 @@
                  <item>
                   <layout class="QHBoxLayout" name="horizontalLayout_27">
                    <item>
-                    <widget class="QRadioButton" name="radioButton_21">
+                    <widget class="QRadioButton" name="ohms_man_radiobutton">
                      <property name="text">
                       <string>MANUAL</string>
                      </property>
@@ -1147,7 +1194,7 @@
                       </widget>
                      </item>
                      <item>
-                      <widget class="QDoubleSpinBox" name="doubleSpinBox_4"/>
+                      <widget class="QDoubleSpinBox" name="ohms_plc_radiobutton"/>
                      </item>
                     </layout>
                    </item>
@@ -1161,7 +1208,7 @@
                       </widget>
                      </item>
                      <item>
-                      <widget class="QDoubleSpinBox" name="doubleSpinBox_5"/>
+                      <widget class="QDoubleSpinBox" name="ohms_time_radiobutton"/>
                      </item>
                     </layout>
                    </item>
@@ -1186,14 +1233,14 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_22">
+                 <widget class="QRadioButton" name="ohms_filoff_radiobutton">
                   <property name="text">
                    <string>OFF</string>
                   </property>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QRadioButton" name="radioButton_23">
+                 <widget class="QRadioButton" name="ohms_fillon_radiobutton">
                   <property name="text">
                    <string>ON</string>
                   </property>
@@ -1207,14 +1254,14 @@
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_46">
              <item>
-              <widget class="QPushButton" name="pushButton_9">
+              <widget class="QPushButton" name="ohms_start_button">
                <property name="text">
                 <string>Start</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_8">
+              <widget class="QPushButton" name="ohms_stop_button">
                <property name="text">
                 <string>Stop</string>
                </property>
@@ -1259,7 +1306,7 @@
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_22">
         <item>
-         <widget class="QGroupBox" name="groupBox_16">
+         <widget class="QGroupBox" name="digi_sett_groupbox">
           <property name="sizePolicy">
            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -1286,14 +1333,14 @@
               </widget>
              </item>
              <item>
-              <widget class="QRadioButton" name="radioButton_27">
+              <widget class="QRadioButton" name="digi_tens_radiobutton">
                <property name="text">
                 <string>Tension</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QRadioButton" name="radioButton_28">
+              <widget class="QRadioButton" name="digi_curr_radiobutton">
                <property name="text">
                 <string>Current</string>
                </property>
@@ -1311,7 +1358,7 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_20"/>
+              <widget class="QComboBox" name="digi_range_combobox"/>
              </item>
             </layout>
            </item>
@@ -1325,12 +1372,12 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBox_21"/>
+              <widget class="QComboBox" name="digi_coupimp_combobox"/>
              </item>
             </layout>
            </item>
            <item>
-            <widget class="QGroupBox" name="groupBox_17">
+            <widget class="QGroupBox" name="digi_meas_groupbox">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                <horstretch>0</horstretch>
@@ -1351,7 +1398,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QComboBox" name="comboBox_22"/>
+                 <widget class="QComboBox" name="digi_filt_combobox"/>
                 </item>
                </layout>
               </item>
@@ -1371,7 +1418,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QDoubleSpinBox" name="doubleSpinBox"/>
+                 <widget class="QDoubleSpinBox" name="digi_aper_spinbox"/>
                 </item>
                </layout>
               </item>
@@ -1381,14 +1428,14 @@
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_48">
              <item>
-              <widget class="QPushButton" name="pushButton_11">
+              <widget class="QPushButton" name="digi_start_pushbutton">
                <property name="text">
                 <string>Start</string>
                </property>
               </widget>
              </item>
              <item>
-              <widget class="QPushButton" name="pushButton_12">
+              <widget class="QPushButton" name="digi_stop_pushbutton">
                <property name="text">
                 <string>Stop</string>
                </property>
@@ -1446,7 +1493,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>643</width>
+     <width>461</width>
      <height>22</height>
     </rect>
    </property>
@@ -1462,4 +1509,10 @@
  </customwidgets>
  <resources/>
  <connections/>
+ <buttongroups>
+  <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_2"/>
+ </buttongroups>
 </ui>

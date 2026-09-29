@@ -1,8 +1,11 @@
-from src.Fluke8588A.instrument.Fluke8588A import Fluke8588A
-from typing import Optional, TYPE_CHECKING
 import logging
-from src.Fluke8588A.instrument.config import InstrumentConfig
-from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
+from typing import Optional, TYPE_CHECKING
+
+import pyvisa
+
+from Fluke8588A.instrument.Fluke8588A import Fluke8588A
+from Fluke8588A.instrument.config import InstrumentConfig
+from Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
 
 
 class InstrumentController:
@@ -15,6 +18,42 @@ class InstrumentController:
         """Initialize the controller without connecting to any instrument."""
         self._instrument: Optional[Fluke8588A] = None
         logging.info("InstrumentController initialized")
+
+    def scan_resources(self) -> list[dict[str, str]]:
+        """Find VISA resources and return display and connection information."""
+        resource_manager = pyvisa.ResourceManager()
+        resources = []
+
+        try:
+            for address in resource_manager.list_resources():
+                identity = "No identification response"
+
+                try:
+                    instrument = resource_manager.open_resource(address)
+                    try:
+                        instrument.timeout = 2000
+                        identity = instrument.query("*IDN?").strip()
+                    finally:
+                        instrument.close()
+                except Exception as error:
+                    logging.warning("Could not identify VISA resource %s: %s", address, error)
+
+                identity_parts = [part.strip() for part in identity.split(",")]
+                if identity != "No identification response":
+                    display_identity = ", ".join(identity_parts[:3])
+                else:
+                    display_identity = identity
+                connection_type = address.split("::", 1)[0]
+
+                resources.append({
+                    "address": address,
+                    "identity": identity,
+                    "display_name": f"{display_identity} ({connection_type})",
+                })
+
+            return resources
+        finally:
+            resource_manager.close()
     
     def is_connected(self) -> bool:
         """
@@ -165,7 +204,7 @@ class InstrumentController:
             raise RuntimeError("Cannot set mode: not connected to instrument")
         
         if mode == "DCV":
-            from src.Fluke8588A.data.settings import DcvSettings
+            from Fluke8588A.data.settings import DcvSettings
             
             root = InstrumentConfig.ROOT_DCV
             
@@ -236,7 +275,7 @@ class InstrumentController:
             
             return actual_settings
         elif mode == 'DCI':
-            from src.Fluke8588A.data.settings import DciSettings
+            from Fluke8588A.data.settings import DciSettings
                 
             root = InstrumentConfig.ROOT_DCI
             

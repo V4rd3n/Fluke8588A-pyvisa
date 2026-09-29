@@ -29,7 +29,7 @@ class OhmsSettings:
     aperture_mode: str
     time:       float
 
-#TO DO, check the bellow
+#TO DO, implement a TriggerSettings
 @dataclass
 class TriggerBaseSettings:
     source:     str

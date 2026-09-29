@@ -2,15 +2,18 @@ from PyQt6 import uic
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QMainWindow
 import os, json
-from src.Fluke8588A.data.spin_box_values import get_functions, get_dcv_range, get_dci_range, get_dcv_impedence, get_dc_digit_val, get_ohm_modes, get_ohm_range
-from src.Fluke8588A.instrument.config import InstrumentConfig
-import src.Fluke8588A.instrument.config as config 
-from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
-from src.Fluke8588A.views.plot_widget import DmmPlotWidget
-main_window_loc = os.path.join(os.path.dirname(__file__), "..", "ui", "mainwindow.ui")
+from Fluke8588A.data.spin_box_values import get_functions, get_dcv_range, get_dci_range, get_dcv_impedence, get_dc_digit_val, get_ohm_modes, get_ohm_range
+from Fluke8588A.instrument.config import InstrumentConfig
+import Fluke8588A.instrument.config as config 
+from Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
+from Fluke8588A.views.plot_widget import DmmPlotWidget
+main_window_loc = os.path.join(os.path.dirname(__file__), "..", "new_ui", "main_window.ui")
 class MainWindow(QMainWindow):
-	
-	init_requested = pyqtSignal()
+	scan_requested = pyqtSignal()
+	connect_requested = pyqtSignal(str)
+	disconnect_requested = pyqtSignal()
+
+	""" init_requested = pyqtSignal()
 	mode_changed = pyqtSignal()
 	read_requested = pyqtSignal()
 	set_requested = pyqtSignal()
@@ -21,17 +24,20 @@ class MainWindow(QMainWindow):
 	ohms_signal = pyqtSignal(OhmsSettings)
 	continuous_start_requested = pyqtSignal()
 	continuous_stop_requested  = pyqtSignal()
-	append_value = pyqtSignal(float)	
+	append_value = pyqtSignal(float)	 """
 
 	def __init__(self):
 		super().__init__()
 		uic.loadUi(main_window_loc, self)
-		self.set_mode_visible(self.current_mode)
+		self._connected = False
+		# self.set_mode_visible(self.current_mode)
 		self._connect_signals()
 		self._init_widgets()
 		
 	def _connect_signals(self):
-		#init set mode
+		self.scan_pushbutton.pressed.connect(self.scan_requested)
+		self.connect_pushbutton.pressed.connect(self._on_connect_pressed)
+		""" #init set mode
 		self.init_button.pressed.connect(self.init_requested)
 		self.mode_combo.currentTextChanged.connect(self.mode_changed)
 		self.set_button.pressed.connect(self.set_requested) 
@@ -56,11 +62,13 @@ class MainWindow(QMainWindow):
 		self.start_button.pressed.connect(self.continuous_start_requested)
 		self.stop_button.pressed.connect(self.continuous_stop_requested)
 		#trigger
-		self.trigger_button.pressed.connect(self.trigger_requested) #to be
+		self.trigger_button.pressed.connect(self.trigger_requested) #to be """
 		 
 
 	def _init_widgets(self):
-		self.gpib_addr_spin.setRange(0, 30)
+		self._init_interactions()
+		self.op_combobox.addItems(get_functions())
+		""" self.gpib_addr_spin.setRange(0, 30)
 		self.gpib_addr_spin.setValue(InstrumentConfig.DEFAULT_ADDRESS)
 		self.mode_combo.addItems(get_functions())
 		#dcv
@@ -79,13 +87,68 @@ class MainWindow(QMainWindow):
 		self.stop_button.setEnabled(False)
 		self.start_button.setEnabled(False)
 		#plotting - connect signal to plot widget
-		self.plot_widget._connect_signals(self)
+		self.plot_widget._connect_signals(self) """
 
-	@property
+	def _init_interactions(self):
+		# Tab hiding part, we iterate the tabs index and show them only if == settings_index,
+		# practically true only with the settings tab, we hide all but it
+		settings_index = self.tabWidget.indexOf(self.setting_tab)
+
+		for index in range(self.tabWidget.count()):
+			self.tabWidget.setTabVisible(index, index == settings_index)
+
+		# active tab at launch is settings 
+		self.tabWidget.setCurrentIndex(settings_index)
+
+		# Disable groups and objects still not useful
+		self.func_groupbox.setEnabled(False)
+		self.trig_groupbox.setEnabled(False)
+		self.scan_combobox.setEnabled(False)
+		self.connect_pushbutton.setEnabled(False)
+
+	def set_scan_results(self, resources: list[dict[str, str]]):
+		self.scan_combobox.clear()
+		for resource in resources:
+			self.scan_combobox.addItem(
+				resource["display_name"],
+				userData=resource,
+			)
+	
+		resources_found = bool(resources)
+		self.scan_combobox.setEnabled(resources_found)
+		self.connect_pushbutton.setEnabled(resources_found)
+
+	def _on_connect_pressed(self):
+		if self._connected:
+			self.disconnect_requested.emit()
+			return
+
+		resource = self.scan_combobox.currentData()
+		if resource is not None:
+			self.connect_requested.emit(resource["address"])
+
+	def set_connected(self):
+		self._connected = True
+		self.scan_pushbutton.setEnabled(False)
+		self.scan_combobox.setEnabled(False)
+		self.connect_pushbutton.setEnabled(True)
+		self.connect_pushbutton.setText("Disconnect")
+
+	def set_disconnected(self):
+		self._connected = False
+		self.scan_pushbutton.setEnabled(True)
+		self.scan_combobox.setEnabled(self.scan_combobox.count() > 0)
+		self.connect_pushbutton.setEnabled(self.scan_combobox.count() > 0)
+		self.connect_pushbutton.setText("Connect")
+
+	def set_status(self, status: str):
+		self.statusbar.showMessage(status)
+		
+	""" @property
 	def current_gpib_address(self)->int:
-		return self.gpib_addr_spin.value()
+		return self.gpib_addr_spin.value() """
 
-	@property
+	""" @property
 	def current_mode(self)->str:
 		return self.mode_combo.currentText()
 
@@ -126,6 +189,7 @@ class MainWindow(QMainWindow):
 	def current_ohm_mode(self)->str:
 		return self.ohm_mode_combo.currentText()
 
+	
 	def set_disconnected(self):
 		self.init_button.setEnabled(True)
 		self.read_button.setEnabled(False)
@@ -247,7 +311,7 @@ class MainWindow(QMainWindow):
 	)
 
 	def _on_dcv_settings_received(self, settings: DcvSettings):
-		"""Update UI when settings are received from instrument"""
+		""Update UI when settings are received from instrument""
 		self.dcv_range_combo.blockSignals(True)
 		self.dcv_res_spin.blockSignals(True)
 		self.dcv_zin_combo.blockSignals(True)
@@ -263,7 +327,7 @@ class MainWindow(QMainWindow):
 		self.dcv_zin_combo.blockSignals(False)
 
 	def _on_dci_settings_received(self, settings: DciSettings):
-		"""Update UI when settings are received from instrument"""
+		""Update UI when settings are received from instrument""
 		self.dci_range_combo.blockSignals(True)
 		self.dci_res_spin.blockSignals(True)
 
@@ -276,7 +340,7 @@ class MainWindow(QMainWindow):
 		self.dci_res_spin.blockSignals(False)
 
 	def _on_ohms_settings_received(self, settings: OhmsSettings):
-		"""Update UI when settings are received from instrument"""
+		""Update UI when settings are received from instrument""
 		self.ohm_range_combo.blockSignals(True)
 		self.ohm_res_spin.blockSignals(True)
 		self.ohm_mode_combo.blockSignals(True)
@@ -295,4 +359,4 @@ class MainWindow(QMainWindow):
 		self.ohm_res_spin.blockSignals(False)
 		self.ohm_mode_combo.blockSignals(False)
 		self.ohm_filter_check.blockSignals(False)
-		self.ohm_lowi_check.blockSignals(False)
+		self.ohm_lowi_check.blockSignals(False) """

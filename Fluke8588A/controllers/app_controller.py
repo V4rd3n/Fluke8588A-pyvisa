@@ -1,11 +1,11 @@
-from src.Fluke8588A.controllers.instrument_controller import InstrumentController as InstrumentController 
-from src.Fluke8588A.views.main_window import MainWindow  
-from src.Fluke8588A.views.dc_measurment_setup import DcMeasurmentWindow
-from src.Fluke8588A.views.trigger_setup import TriggerWindow
-from src.Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings, TriggerBaseSettings
-from src.Fluke8588A.controllers.measurement_controller import ReadingThread
-from src.Fluke8588A.services.translator import Translator
-import src.Fluke8588A.instrument.config as config, json
+from Fluke8588A.controllers.instrument_controller import InstrumentController as InstrumentController 
+from Fluke8588A.views.main_window import MainWindow  
+from Fluke8588A.views.dc_measurment_setup import DcMeasurmentWindow
+from Fluke8588A.views.trigger_setup import TriggerWindow
+from Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings, TriggerBaseSettings
+from Fluke8588A.controllers.measurement_controller import ReadingThread
+from Fluke8588A.services.translator import Translator
+import Fluke8588A.instrument.config as config, json
 class AppController:
 	TEST_MODE = True  # Set to False to disable debug output
 	
@@ -13,7 +13,7 @@ class AppController:
 		self._view = MainWindow()
 		self._meas_pop_up = DcMeasurmentWindow()
 		# self._trigger_pop_up = TriggerWindow()
-		self._view.set_disconnected()
+		# self._view.set_disconnected()
 		# Initialize settings objects with default values
 		self._dcv_settings = DcvSettings(
 			range_mode="MAN",
@@ -67,7 +67,10 @@ class AppController:
 		if self.TEST_MODE: print("<<< _pre_translate_defaults")
 
 	def _connect_signals(self):
-		self._view.init_requested.connect(self._on_init)
+		self._view.scan_requested.connect(self._on_scan)
+		self._view.connect_requested.connect(self._on_connect)
+		self._view.disconnect_requested.connect(self._on_disconnect)
+		""" self._view.init_requested.connect(self._on_init)
 		self._view.mode_changed.connect(self._on_mode_change)
 		self._view.read_requested.connect(self._on_read)
 		self._view.set_requested.connect(self._on_set)
@@ -79,7 +82,7 @@ class AppController:
 		self._meas_pop_up.time_select.connect(self._on_time_changed)
 		self._meas_pop_up.nplc_select.connect(self._on_nplc_changed)
 		self._view.continuous_start_requested.connect(self._on_continuous_start)
-		self._view.continuous_stop_requested.connect(self._on_continuous_stop)
+		self._view.continuous_stop_requested.connect(self._on_continuous_stop) """
 
 	def _on_read(self):
 		if self.TEST_MODE: print(f">>> _on_read")
@@ -349,3 +352,42 @@ class AppController:
 		self._view.stop_button.setEnabled(False)
 		self._view.start_button.setEnabled(True)
 		if self.TEST_MODE: print(f"<<< _on_continuous_stop")
+
+	def _on_scan(self):
+		if self.TEST_MODE: print(">>> _on_scan")
+		try:
+			resources = self._instr_ctrl.scan_resources()
+			self._view.set_scan_results(resources)
+			self._view.set_status(f"Found {len(resources)} VISA resource(s)")
+			if self.TEST_MODE: print(f"    VISA_RESOURCES: {resources}")
+		except Exception as error:
+			self._view.set_scan_results([])
+			self._view.set_status(f"Scan error: {error}")
+			if self.TEST_MODE: print(f"    SCAN_ERROR: {error}")
+		if self.TEST_MODE: print("<<< _on_scan")
+
+	def _on_connect(self, address: str):
+		if self.TEST_MODE: print(f">>> _on_connect (address={address})")
+		try:
+			self._instr_ctrl.connect(address)
+			self._view.set_connected()
+			self._view.set_status(f"Connected to {address}")
+			if self.TEST_MODE: print(f"<<< _on_connect (connected={address})")
+		except Exception as error:
+			self._view.set_status(f"Connection error: {error}")
+			if self.TEST_MODE: print(f"<<< _on_connect (error={error})")
+
+	def _on_disconnect(self):
+		if self.TEST_MODE: print(">>> _on_disconnect")
+		if not self._instr_ctrl.is_connected():
+			self._view.set_disconnected()
+			return
+
+		try:
+			self._instr_ctrl.disconnect()
+			self._view.set_disconnected()
+			self._view.set_status("Disconnected")
+			if self.TEST_MODE: print("<<< _on_disconnect")
+		except Exception as error:
+			self._view.set_status(f"Disconnect error: {error}")
+			if self.TEST_MODE: print(f"<<< _on_disconnect (error={error})")

@@ -1,6 +1,6 @@
 import pyvisa
 import logging
-from src.Fluke8588A.instrument.config import InstrumentConfig
+from Fluke8588A.instrument.config import InstrumentConfig
 #CLASSE DEL DMM Fluke 8588A
 class Fluke8588A():
 	"""
@@ -36,10 +36,9 @@ class Fluke8588A():
 		logging.info("Instrument %s successfully initialized." % idn_string)
 
 	def __connect(self, address): #private to be only used by init
-		rm = pyvisa.ResourceManager()
+		self._rm = pyvisa.ResourceManager()
 		self._address = address
-		#self._instr = rm.open_resource(InstrumentConfig.GPIB_PREFIX + str(self._address) + InstrumentConfig.GPIB_SUFFIX)
-		self._instr = rm.open_resource("USB0::3966::32777::651684161::0::INSTR")
+		self._instr = self._rm.open_resource(address)
 		self.is_connected = True
 		
 	def identify(self):
@@ -103,6 +102,7 @@ class Fluke8588A():
 			none
 		'''
 		self._instr.close()
+		self._rm.close()
 		self.is_connected = False
 
 	def init_dcv(self, range_mode, range_val,  resolution_val, zin_val, aperture_mode, time_val):
