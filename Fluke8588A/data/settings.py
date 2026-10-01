@@ -19,6 +19,31 @@ class DciSettings:
     time:       float 
 
 @dataclass
+class AcvSettings:
+    range_val: str
+    resolution: int
+    rms_filter: str
+    coupling_impedance: str
+    secondary_reading: str
+    frequency_path_coupling: str
+    frequency_path_bandwidth_limit: str
+    counter_gate: str
+    bandwidth: str
+    peak_to_peak: str
+
+@dataclass
+class AciSettings:
+    range_val: str
+    resolution: int
+    rms_filter: str
+    signal_path_coupling: str
+    secondary_reading: str
+    frequency_path_coupling: str
+    frequency_path_bandwidth_limit: str
+    counter_gate: str
+    peak_to_peak: str
+
+@dataclass
 class OhmsSettings:
     four: bool
     range_val:  str

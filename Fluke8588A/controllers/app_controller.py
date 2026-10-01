@@ -2,7 +2,14 @@ from Fluke8588A.controllers.instrument_controller import InstrumentController as
 from Fluke8588A.views.main_window import MainWindow  
 from Fluke8588A.views.dc_measurment_setup import DcMeasurmentWindow
 from Fluke8588A.views.trigger_setup import TriggerWindow
-from Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings, TriggerBaseSettings
+from Fluke8588A.data.settings import (
+	AciSettings,
+	AcvSettings,
+	DciSettings,
+	DcvSettings,
+	OhmsSettings,
+	TriggerBaseSettings,
+)
 from Fluke8588A.controllers.measurement_controller import ReadingThread
 from Fluke8588A.services.translator import Translator
 import Fluke8588A.instrument.config as config, json
@@ -17,18 +24,41 @@ class AppController:
 		# Initialize settings objects with default values
 		self._dcv_settings = DcvSettings(
 			range_mode="MAN",
-			range_val="1 V",
-			resolution=4,
-			zin="Auto",
-			aperture_mode="MAN",
-			time=0.1
+			range_val="1 kV",
+			resolution=7,
+			zin="AUTO",
+			aperture_mode="AUTO",
+			time=1.0
 		)
 		self._dci_settings = DciSettings(
 			range_mode="MAN",
-			range_val="1 A",
-			resolution=4,
+			range_val="30 A",
+			resolution=7,
 			aperture_mode="AUTO",
-			time=0.1
+			time=1.0
+		)
+		self._acv_settings = AcvSettings(
+			range_val="1 kV",
+			resolution=7,
+			rms_filter="40Hz",
+			coupling_impedance="AC 1MΩ",
+			secondary_reading="Frequency",
+			frequency_path_coupling="AC",
+			frequency_path_bandwidth_limit="OFF",
+			counter_gate="AUTO",
+			bandwidth="Wideband",
+			peak_to_peak="Measured",
+		)
+		self._aci_settings = AciSettings(
+			range_val="30 A",
+			resolution=6,
+			rms_filter="40Hz",
+			signal_path_coupling="AC",
+			secondary_reading="Frequency",
+			frequency_path_coupling="AC",
+			frequency_path_bandwidth_limit="OFF",
+			counter_gate="AUTO",
+			peak_to_peak="Measured",
 		)
 		self._ohms_settings = OhmsSettings(
 			four=False,
@@ -61,6 +91,11 @@ class AppController:
 	def _pre_translate_defaults(self):
 		"""Translate default GUI settings to machine format upon initialization."""
 		if self.TEST_MODE: print(">>> _pre_translate_defaults")
+		self._view._on_dcv_settings_received(self._dcv_settings)
+		self._view._on_dci_settings_received(self._dci_settings)
+		self._view._on_acv_settings_received(self._acv_settings)
+		self._view._on_aci_settings_received(self._aci_settings)
+		self._view._on_ohms_settings_received(self._ohms_settings)
 		self._on_dcv_setting_change(self._dcv_settings)
 		self._on_dci_setting_change(self._dci_settings)
 		self._on_ohms_setting_change(self._ohms_settings)

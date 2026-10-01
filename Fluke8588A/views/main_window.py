@@ -2,10 +2,26 @@ from PyQt6 import uic
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QMainWindow
 import os, json
-from Fluke8588A.data.spin_box_values import get_functions, get_dcv_range, get_dci_range, get_dcv_impedence, get_dc_digit_val, get_ohm_modes, get_ohm_range
+from Fluke8588A.data.spin_box_values import (
+	AC_COUNTGATE,
+	AC_PK2PK,
+	AC_SECREAD,
+	ACV_COUPIMP,
+	ACV_RANGE,
+	I_RANGE,
+	RMS_FILTER,
+	get_ac_digit_val,
+	get_dci_range,
+	get_dc_digit_val,
+	get_dcv_impedence,
+	get_dcv_range,
+	get_functions,
+	get_ohm_modes,
+	get_ohm_range,
+)
 from Fluke8588A.instrument.config import InstrumentConfig
 import Fluke8588A.instrument.config as config 
-from Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
+from Fluke8588A.data.settings import AciSettings, AcvSettings, DciSettings, DcvSettings, OhmsSettings
 from Fluke8588A.views.plot_widget import DmmPlotWidget
 main_window_loc = os.path.join(os.path.dirname(__file__), "..", "new_ui", "main_window.ui")
 class MainWindow(QMainWindow):
@@ -37,6 +53,9 @@ class MainWindow(QMainWindow):
 	def _connect_signals(self):
 		self.scan_pushbutton.pressed.connect(self.scan_requested)
 		self.connect_pushbutton.pressed.connect(self._on_connect_pressed)
+		self.funcopen_pushbutton.clicked.connect(
+			lambda: self._on_function_selected(self.op_combobox.currentText())
+		)
 		""" #init set mode
 		self.init_button.pressed.connect(self.init_requested)
 		self.mode_combo.currentTextChanged.connect(self.mode_changed)
@@ -68,6 +87,27 @@ class MainWindow(QMainWindow):
 	def _init_widgets(self):
 		self._init_interactions()
 		self.op_combobox.addItems(get_functions())
+		self.dcv_range_combobox.addItems(get_dcv_range())
+		self.dcv_imp_combobox.addItems(get_dcv_impedence())
+		self.dcv_resol_spinbox.setRange(min(get_dc_digit_val()), max(get_dc_digit_val()))
+		self.dci_range_combobox.addItems(get_dci_range())
+		self.dci_resol_spinbox.setRange(min(get_dc_digit_val()), max(get_dc_digit_val()))
+		self.acv_range_combobox.addItems(ACV_RANGE)
+		self.acv_resol_spinbox.setRange(min(get_ac_digit_val()), max(get_ac_digit_val()))
+		self.acv_filter_combobox.addItems(RMS_FILTER)
+		self.acv_couimp_combobox.addItems(ACV_COUPIMP)
+		self.acv_secread_combobox.addItems(AC_SECREAD)
+		self.acv_count_combobox.addItems(AC_COUNTGATE)
+		self.acv_pktpk_combobox.addItems(AC_PK2PK)
+		self.aci_range_combobox.addItems(I_RANGE)
+		self.aci_resol_spinbox.setRange(min(get_ac_digit_val()), max(get_ac_digit_val()))
+		self.aci_filter_combobox.addItems(RMS_FILTER)
+		self.aci_secread_combobox.addItems(AC_SECREAD)
+		self.aci_count_combobox.addItems(AC_COUNTGATE)
+		self.aci_pktpk_combobox.addItems(AC_PK2PK)
+		self.ohms_range_combobox.addItems(get_ohm_range())
+		self.ohms_resol_spinbox.setRange(min(get_dc_digit_val()), max(get_dc_digit_val()))
+		self.ohms_mode_combobox.addItems(get_ohm_modes())
 		""" self.gpib_addr_spin.setRange(0, 30)
 		self.gpib_addr_spin.setValue(InstrumentConfig.DEFAULT_ADDRESS)
 		self.mode_combo.addItems(get_functions())
@@ -106,6 +146,25 @@ class MainWindow(QMainWindow):
 		self.scan_combobox.setEnabled(False)
 		self.connect_pushbutton.setEnabled(False)
 
+	def _on_function_selected(self, function: str):
+		function_tabs = {
+			"DCV": self.dcv_tab,
+			"ACV": self.acv_tab,
+			"DCI": self.dci_tab,
+			"ACI": self.aci_tab,
+			"OHMS": self.ohms_tab,
+			"DIGITIZE": self.digi_tab,
+		}
+		selected_tab = function_tabs.get(function)
+		if selected_tab is None:
+			return
+
+		settings_index = self.tabWidget.indexOf(self.setting_tab)
+		selected_index = self.tabWidget.indexOf(selected_tab)
+		for index in range(self.tabWidget.count()):
+			self.tabWidget.setTabVisible(index, index in (settings_index, selected_index))
+		self.tabWidget.setCurrentIndex(selected_index)
+
 	def set_scan_results(self, resources: list[dict[str, str]]):
 		self.scan_combobox.clear()
 		for resource in resources:
@@ -133,6 +192,8 @@ class MainWindow(QMainWindow):
 		self.scan_combobox.setEnabled(False)
 		self.connect_pushbutton.setEnabled(True)
 		self.connect_pushbutton.setText("Disconnect")
+		self.func_groupbox.setEnabled(True)
+		self.trig_groupbox.setEnabled(True)
 
 	def set_disconnected(self):
 		self._connected = False
@@ -140,9 +201,11 @@ class MainWindow(QMainWindow):
 		self.scan_combobox.setEnabled(self.scan_combobox.count() > 0)
 		self.connect_pushbutton.setEnabled(self.scan_combobox.count() > 0)
 		self.connect_pushbutton.setText("Connect")
+		self.func_groupbox.setEnabled(False)
+		self.trig_groupbox.setEnabled(False)
 
 	def set_status(self, status: str):
-		self.statusbar.showMessage(status)
+		self.statusbar.showMessage(status, 7000)
 		
 	""" @property
 	def current_gpib_address(self)->int:
@@ -309,54 +372,66 @@ class MainWindow(QMainWindow):
 			time = self.ohm_time_label.text()
 		)
 	)
+	"""
 
 	def _on_dcv_settings_received(self, settings: DcvSettings):
-		""Update UI when settings are received from instrument""
-		self.dcv_range_combo.blockSignals(True)
-		self.dcv_res_spin.blockSignals(True)
-		self.dcv_zin_combo.blockSignals(True)
-
-		self.dcv_range_combo.setCurrentText(settings.range_val)
-		self.dcv_res_spin.setValue(settings.resolution)
-		self.dcv_zin_combo.setCurrentText(settings.zin)
-		self.dcv_measure_setup_button.setText(settings.aperture_mode)
-		self.dcv_time_label.setText(str(settings.time))
-
-		self.dcv_range_combo.blockSignals(False)
-		self.dcv_res_spin.blockSignals(False)
-		self.dcv_zin_combo.blockSignals(False)
+		self.dcv_range_combobox.setCurrentText(settings.range_val)
+		self.dcv_resol_spinbox.setValue(settings.resolution)
+		self.dcv_imp_combobox.setCurrentText(settings.zin)
+		self.dcv_man_radiobutton.setChecked(settings.aperture_mode == "MAN")
+		self.dcv_autofast_radiobutton.setChecked(settings.aperture_mode == "FAST")
+		self.dcv_auto_radiobutton.setChecked(settings.aperture_mode == "AUTO")
+		self.dcv_time_spinbox.setValue(settings.time)
+		self.dcv_plc_spinbox.setValue(settings.time * 50)
 
 	def _on_dci_settings_received(self, settings: DciSettings):
-		""Update UI when settings are received from instrument""
-		self.dci_range_combo.blockSignals(True)
-		self.dci_res_spin.blockSignals(True)
+		self.dci_range_combobox.setCurrentText(settings.range_val)
+		self.dci_resol_spinbox.setValue(settings.resolution)
+		self.dci_man_radiobutton.setChecked(settings.aperture_mode == "MAN")
+		self.dci_autofast_radiobutton.setChecked(settings.aperture_mode == "FAST")
+		self.dci_auto_radiobutton.setChecked(settings.aperture_mode == "AUTO")
+		self.dci_time_spinbox.setValue(settings.time)
+		self.dci_plc_spinbox.setValue(settings.time * 50)
 
-		self.dci_range_combo.setCurrentText(settings.range_val)
-		self.dci_res_spin.setValue(settings.resolution)
-		self.dci_measure_setup_button.setText(settings.aperture_mode)
-		self.dci_time_label.setText(str(settings.time))
+	def _on_acv_settings_received(self, settings: AcvSettings):
+		self.acv_range_combobox.setCurrentText(settings.range_val)
+		self.acv_resol_spinbox.setValue(settings.resolution)
+		self.acv_filter_combobox.setCurrentText(settings.rms_filter)
+		self.acv_couimp_combobox.setCurrentText(settings.coupling_impedance)
+		self.acv_secread_combobox.setCurrentText(settings.secondary_reading)
+		self.acv_ac_radiobutton.setChecked(settings.frequency_path_coupling == "AC")
+		self.acv_dc_radiobutton.setChecked(settings.frequency_path_coupling == "DC")
+		self.acv_off_radiobutton.setChecked(settings.frequency_path_bandwidth_limit == "OFF")
+		self.acv_on_radiobutton.setChecked(settings.frequency_path_bandwidth_limit == "ON")
+		self.acv_count_combobox.setCurrentText(settings.counter_gate)
+		self.acv_wide_radiobutton.setChecked(settings.bandwidth == "Wideband")
+		self.acv_ext_radiobutton.setChecked(settings.bandwidth == "Extended HF")
+		self.acv_pktpk_combobox.setCurrentText(settings.peak_to_peak)
 
-		self.dci_range_combo.blockSignals(False)
-		self.dci_res_spin.blockSignals(False)
+	def _on_aci_settings_received(self, settings: AciSettings):
+		self.aci_range_combobox.setCurrentText(settings.range_val)
+		self.aci_resol_spinbox.setValue(settings.resolution)
+		self.aci_filter_combobox.setCurrentText(settings.rms_filter)
+		self.aci_sac_radiobutton.setChecked(settings.signal_path_coupling == "AC")
+		self.aci_sdc_radiobutton.setChecked(settings.signal_path_coupling == "DC")
+		self.aci_secread_combobox.setCurrentText(settings.secondary_reading)
+		self.aci_fac_radiobutton.setChecked(settings.frequency_path_coupling == "AC")
+		self.aci_fdc_radiobutton.setChecked(settings.frequency_path_coupling == "DC")
+		self.aci_off_radiobutton.setChecked(settings.frequency_path_bandwidth_limit == "OFF")
+		self.aci_on_radiobutton.setChecked(settings.frequency_path_bandwidth_limit == "ON")
+		self.aci_count_combobox.setCurrentText(settings.counter_gate)
+		self.aci_pktpk_combobox.setCurrentText(settings.peak_to_peak)
 
 	def _on_ohms_settings_received(self, settings: OhmsSettings):
-		""Update UI when settings are received from instrument""
-		self.ohm_range_combo.blockSignals(True)
-		self.ohm_res_spin.blockSignals(True)
-		self.ohm_mode_combo.blockSignals(True)
-		self.ohm_filter_check.blockSignals(True)
-		self.ohm_lowi_check.blockSignals(True)
-
-		self.ohm_range_combo.setCurrentText(settings.range_val)
-		self.ohm_res_spin.setValue(settings.resolution)
-		self.ohm_mode_combo.setCurrentText(settings.mode)
-		self.ohm_filter_check.setChecked(settings.filter)
-		self.ohm_lowi_check.setChecked(settings.low_i)
-		self.ohm_measure_setup.setText(settings.aperture_mode)
-		self.ohm_time_label.setText(str(settings.time))
-
-		self.ohm_range_combo.blockSignals(False)
-		self.ohm_res_spin.blockSignals(False)
-		self.ohm_mode_combo.blockSignals(False)
-		self.ohm_filter_check.blockSignals(False)
-		self.ohm_lowi_check.blockSignals(False) """
+		self.ohms_range_combobox.setCurrentText(settings.range_val)
+		self.ohms_resol_spinbox.setValue(settings.resolution)
+		self.ohms_mode_combobox.setCurrentText(settings.mode)
+		self.ohms_lolon_radiobutton.setChecked(settings.four)
+		self.ohms_loloff_radiobutton.setChecked(not settings.four)
+		self.ohms_man_radiobutton.setChecked(settings.aperture_mode == "MAN")
+		self.ohms_autofast_radiobutton.setChecked(settings.aperture_mode == "FAST")
+		self.ohms_auto_radiobutton.setChecked(settings.aperture_mode == "AUTO")
+		self.ohms_time_radiobutton.setValue(settings.time)
+		self.ohms_plc_radiobutton.setValue(settings.time * 50)
+		self.ohms_fillon_radiobutton.setChecked(settings.filter)
+		self.ohms_filoff_radiobutton.setChecked(not settings.filter)
