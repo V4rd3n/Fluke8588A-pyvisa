@@ -2,6 +2,7 @@ from Fluke8588A.controllers.instrument_controller import InstrumentController as
 from Fluke8588A.views.main_window import MainWindow  
 from Fluke8588A.views.dc_measurment_setup import DcMeasurmentWindow
 from Fluke8588A.views.trigger_setup import TriggerWindow
+from Fluke8588A.views.trigger_base import TriggerBaseWindow
 from Fluke8588A.data.settings import (
 	AciSettings,
 	AcvSettings,
@@ -15,10 +16,12 @@ from Fluke8588A.services.translator import Translator
 import Fluke8588A.instrument.config as config, json
 class AppController:
 	TEST_MODE = True  # Set to False to disable debug output
+	DEFAULT_LINE_FREQUENCY = 50.0
 	
 	def __init__(self):
 		self._view = MainWindow()
 		self._meas_pop_up = DcMeasurmentWindow()
+		self._trigger_base_pop_up = TriggerBaseWindow()
 		# self._trigger_pop_up = TriggerWindow()
 		# self._view.set_disconnected()
 		# Initialize settings objects with default values
@@ -84,6 +87,7 @@ class AppController:
 		self._connect_signals()
 		self._view.show()
 		self._instr_ctrl=InstrumentController()
+		self._line_frequency = self.DEFAULT_LINE_FREQUENCY
 		self._reading_thread= None
 		self._translator = Translator()
 		self._pre_translate_defaults()
@@ -96,6 +100,7 @@ class AppController:
 		self._view._on_acv_settings_received(self._acv_settings)
 		self._view._on_aci_settings_received(self._aci_settings)
 		self._view._on_ohms_settings_received(self._ohms_settings)
+		self._update_view_aperture_values()
 		self._on_dcv_setting_change(self._dcv_settings)
 		self._on_dci_setting_change(self._dci_settings)
 		self._on_ohms_setting_change(self._ohms_settings)
@@ -105,6 +110,10 @@ class AppController:
 		self._view.scan_requested.connect(self._on_scan)
 		self._view.connect_requested.connect(self._on_connect)
 		self._view.disconnect_requested.connect(self._on_disconnect)
+		self._view.dcv_start_requested.connect(self._on_dcv_start)
+		self._view.dci_start_requested.connect(self._on_dci_start)
+		self._view.trigger_base_requested.connect(self._on_trigger_base_press)
+		self._view.aperture_value_changed.connect(self._on_aperture_value_changed)
 		""" self._view.init_requested.connect(self._on_init)
 		self._view.mode_changed.connect(self._on_mode_change)
 		self._view.read_requested.connect(self._on_read)
@@ -241,7 +250,7 @@ class AppController:
 			self._dci_settings = gui_settings
 		elif mode == "OHMS":
 			gui_settings = OhmsSettings(
-				four=actual_settings.four,
+				four=False,
 				range_val=self._translator.translate_reverse("ohm_range", actual_settings.range_val),
 				resolution=actual_settings.resolution,
 				mode=self._translator.translate_reverse("ohm_mode", actual_settings.mode),
@@ -285,6 +294,11 @@ class AppController:
 		if self.TEST_MODE: print(f">>> _on_trigger_press")
 		self._trigger_pop_up.show()
 		if self.TEST_MODE: print(f"<<< _on_trigger_press")
+
+	def _on_trigger_base_press(self):
+		if self.TEST_MODE: print(f">>> _on_trigger_base_press")
+		self._trigger_base_pop_up.show()
+		if self.TEST_MODE: print(f"<<< _on_trigger_base_press")
 	def _on_aperture_mode_changed(self, mode):
 		if self.TEST_MODE: print(f">>> _on_aperture_mode_changed (mode={mode})")
 		self._view.set_aperture_mode(mode)
@@ -309,6 +323,43 @@ class AppController:
 		self._view.set_nplc_value(nplc)
 		if self.TEST_MODE: print(f"<<< _on_nplc_changed")
 
+	def calculate_plc(self, time: float) -> float:
+		return max(float(time) * self._line_frequency, 0.01)
+
+	def calculate_time(self, plc: float) -> float:
+		return float(plc) / self._line_frequency
+
+	def _update_view_aperture_values(self):
+		for function, settings in (
+			("DCV", self._dcv_settings),
+			("DCI", self._dci_settings),
+			("OHMS", self._ohms_settings),
+		):
+			self._view.set_aperture_values(
+				function,
+				settings.time,
+				self.calculate_plc(settings.time),
+			)
+
+	def _on_aperture_value_changed(self, function: str, source: str, value: float):
+		settings_by_function = {
+			"DCV": self._dcv_settings,
+			"DCI": self._dci_settings,
+			"OHMS": self._ohms_settings,
+		}
+		settings = settings_by_function.get(function)
+		if settings is None:
+			return
+
+		if source == "time":
+			settings.time = float(value)
+			plc = self.calculate_plc(settings.time)
+		else:
+			plc = float(value)
+			settings.time = self.calculate_time(plc)
+
+		self._view.set_aperture_values(function, settings.time, plc)
+
 	def _set_ui_aperture_settings(self):
 		self._view.set_aperture_mode()
 		self._view.set_time_value()
@@ -319,7 +370,7 @@ class AppController:
 		translated_settings = DcvSettings(
 			range_mode=settings.range_mode,
 			range_val = self._translator.translate("dcv_range", settings.range_val),
-			resolution=settings.resolution,
+			resolution=self._translator.translate_resolution(settings.resolution),
 			zin=self._translator.translate("impedence", settings.zin),
 			aperture_mode=settings.aperture_mode,
 			time=settings.time
@@ -334,7 +385,7 @@ class AppController:
 		translated_settings = DciSettings(
 			range_mode=settings.range_mode,
 			range_val=self._translator.translate("dci_range", settings.range_val),
-			resolution=settings.resolution,
+			resolution=self._translator.translate_resolution(settings.resolution),
 			aperture_mode=settings.aperture_mode,
 			time=settings.time
 		)
@@ -342,10 +393,34 @@ class AppController:
 		self._dci_settings = translated_settings
 		if self.TEST_MODE: print(f"<<< _on_dci_setting_change (stored={self._dci_settings})")
 
+	def _on_dcv_start(self):
+		if self.TEST_MODE: print(">>> _on_dcv_start")
+		try:
+			self._on_dcv_setting_change(self._view.get_dcv_settings())
+			self._instr_ctrl.set_dcv(self._dcv_settings)
+			self._view.set_status("DCV measurement started.")
+		except Exception as error:
+			self._view.set_status(f"DCV start error: {error}")
+			if self.TEST_MODE: print(f"<<< _on_dcv_start (error={error})")
+			return
+		if self.TEST_MODE: print(f"<<< _on_dcv_start (settings={self._dcv_settings})")
+
+	def _on_dci_start(self):
+		if self.TEST_MODE: print(">>> _on_dci_start")
+		try:
+			self._on_dci_setting_change(self._view.get_dci_settings())
+			self._instr_ctrl.set_dci(self._dci_settings)
+			self._view.set_status("DCI measurement started.")
+		except Exception as error:
+			self._view.set_status(f"DCI start error: {error}")
+			if self.TEST_MODE: print(f"<<< _on_dci_start (error={error})")
+			return
+		if self.TEST_MODE: print(f"<<< _on_dci_start (settings={self._dci_settings})")
+
 	def _on_ohms_setting_change(self, settings: OhmsSettings):
 		if self.TEST_MODE: print(f">>> _on_ohms_setting_change (range_val={settings.range_val}, mode={settings.mode}, resolution={settings.resolution})")
 		translated_settings = OhmsSettings(
-			four=settings.four,
+			four=False,
 			range_val=self._translator.translate("ohm_range", settings.range_val),
 			resolution=settings.resolution,
 			mode= settings.mode,
@@ -356,10 +431,6 @@ class AppController:
 		)
 		if self.TEST_MODE: print(f"    TRANSLATED: range_val={translated_settings.range_val}, mode={translated_settings.mode}")
 		self._ohms_settings = translated_settings
-		if settings.mode.startswith("4W"):
-			self._ohms_settings.four=True
-		elif settings.mode.startswith("2W"):
-			self._ohms_settings.four=False
 		if self.TEST_MODE: print(f"<<< _on_ohms_setting_change (stored={self._ohms_settings})")
 
 	def _on_continuous_start(self):
@@ -405,6 +476,8 @@ class AppController:
 		if self.TEST_MODE: print(f">>> _on_connect (address={address})")
 		try:
 			self._instr_ctrl.connect(address)
+			self._line_frequency = self._instr_ctrl.get_line_frequency()
+			self._update_view_aperture_values()
 			self._view.set_connected()
 			self._view.set_status(f"Connected to {address}")
 			if self.TEST_MODE: print(f"<<< _on_connect (connected={address})")
@@ -420,6 +493,7 @@ class AppController:
 
 		try:
 			self._instr_ctrl.disconnect()
+			self._line_frequency = self.DEFAULT_LINE_FREQUENCY
 			self._view.set_disconnected()
 			self._view.set_status("Disconnected")
 			if self.TEST_MODE: print("<<< _on_disconnect")

@@ -22,13 +22,14 @@ SEV_DIGIT_VAL = sorted(InstrumentConfig.VALID_RESOLUTIONS_AC_DIGITS)
 
 AUTO_FAST_VALUES = [1e-2, 1e-1, 1, 1e1, 1e2]  # values for autofast at 4,5,6,7,8 digits
 
-OHM_MODES = ["2W NORMAL", "4W NORMAL", "4W Tru", "2W HV", "4W HV"]
-OHM_RANGE = ["AUTO", "1 Ω", "10 Ω", "100 Ω", "1 kΩ", "100 kΩ", "1 MΩ", "10 MΩ", "100 MΩ", "1 GΩ"]
+OHM_MODES = ["2W NORMAL", "4W NORMAL", "4W Tru"]
+OHM_RANGE = ["AUTO", "1 Ω", "10 Ω", "100 Ω", "1 kΩ", "10 kΩ", "100 kΩ", "1 MΩ", "10 MΩ", "100 MΩ", "1 GΩ"]
+OHM_TRU_RANGE = ["AUTO", "1 Ω", "10 Ω", "100 Ω", "1 kΩ", "10 kΩ"]
 
 DIGI_V_RANGE =  ["100 mV", "1 V", "10 V", "100 V", "1 kV"]
 DIGI_I_RANGE =  ["10 μA", "100 μA", "1 mA", "10 mA", "100 mA", "1 A", "10 A", "30 A"]
-DIGI_V_COUPIMP = ["DC, Auto", "DC, 1MΩ", "DC, 10MΩ", "AC 1MΩ", "AC 10MΩ"]
-DIGI_I_COUPIMP = ["AC, Auto", "DC, Auto"]
+DIGI_V_COUPIMP = ["DC, Auto", "DC, 1MΩ", "DC, 10MΩ", "AC, 1MΩ", "AC, 10MΩ"]
+DIGI_I_COUPIMP = ["DC, Auto", "AC, Auto"]
 DIGI_FILTER = ["OFF", "100 kHZ", "3 MHz"]
 
 HZ=50
@@ -81,3 +82,17 @@ def get_ohm_modes():
 def get_ohm_range():
     return OHM_RANGE
 
+def get_ohm_tru_range():
+    return OHM_TRU_RANGE
+
+def get_digi_v_range():
+    return DIGI_V_RANGE
+
+def get_digi_i_range():
+    return DIGI_I_RANGE
+
+def get_digi_v_coupling_impedance():
+    return DIGI_V_COUPIMP
+
+def get_digi_i_coupling_impedance():
+    return DIGI_I_COUPIMP

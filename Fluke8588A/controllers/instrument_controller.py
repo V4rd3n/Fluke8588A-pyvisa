@@ -118,6 +118,13 @@ class InstrumentController:
             raise RuntimeError("Cannot identify: not connected to instrument")
         
         return self._instrument.identify()
+
+    def get_line_frequency(self) -> float:
+        """Return the connected instrument's power-line frequency in hertz."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot get line frequency: not connected to instrument")
+
+        return self._instrument.get_line_frequency()
     
     def reset(self) -> None:
         """
@@ -131,7 +138,34 @@ class InstrumentController:
         
         self._instrument.reset()
     
-    def init_dcv(self, range_mode: str, range_val: float, resolution_val: int, 
+    def set_dcv(self, settings: DcvSettings) -> None:
+        """Configure the connected instrument for DC voltage measurement."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set DCV: not connected to instrument")
+
+        self._instrument.set_dcv(
+            range_mode=settings.range_mode,
+            range_val=settings.range_val,
+            resolution_val=settings.resolution,
+            zin_val=settings.zin,
+            aperture_mode=settings.aperture_mode,
+            time_val=settings.time,
+        )
+
+    def set_dci(self, settings: DciSettings) -> None:
+        """Configure the connected instrument for DC current measurement."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set DCI: not connected to instrument")
+
+        self._instrument.set_dci(
+            range_mode=settings.range_mode,
+            range_val=settings.range_val,
+            resolution_val=settings.resolution,
+            aperture_mode=settings.aperture_mode,
+            time_val=settings.time,
+        )
+
+    def init_dcv(self, range_mode: str, range_val: float, resolution_val: int,
                  zin_val: str, aperture_mode: str, time_val: float) -> None:
         """
         Initialize DC voltage measurement mode.
@@ -150,8 +184,9 @@ class InstrumentController:
         if not self.is_connected():
             raise RuntimeError("Cannot initialize DCV: not connected to instrument")
         
-        self._instrument.init_dcv(range_mode, range_val, resolution_val, 
-                                  zin_val, aperture_mode, time_val)
+        self._instrument.init_dcv(
+            range_mode, range_val, resolution_val, zin_val, aperture_mode, time_val
+        )
     
     def write(self, command: str) -> None:
         """
@@ -208,14 +243,7 @@ class InstrumentController:
             
             root = InstrumentConfig.ROOT_DCV
             
-            self._instrument.init_dcv(
-                range_mode=settings.range_mode,
-                range_val=settings.range_val,
-                resolution_val=settings.resolution,
-                zin_val=settings.zin,
-                aperture_mode=settings.aperture_mode,
-                time_val=settings.time
-            )
+            self.set_dcv(settings)
             
             actual_settings = DcvSettings(
                 range_mode=self._instrument.getRangeMode(root),
@@ -279,13 +307,7 @@ class InstrumentController:
                 
             root = InstrumentConfig.ROOT_DCI
             
-            self._instrument.init_dci(
-                range_mode=settings.range_mode,
-                range_val=settings.range_val,
-                resolution_val=settings.resolution,
-                aperture_mode=settings.aperture_mode,
-                time_val=settings.time
-            )
+            self.set_dci(settings)
             
             actual_settings = DciSettings(
                 range_mode=self._instrument.getRangeMode(root),

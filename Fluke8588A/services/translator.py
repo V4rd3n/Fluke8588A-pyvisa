@@ -33,6 +33,24 @@ class Translator:
         """
         mapping = self._gui_to_machine_maps.get(param_type, {})
         return mapping.get(gui_value, self.error_value)
+
+    def translate_resolution(self, resolution_digits: int) -> float:
+        """Convert the GUI digit count to the absolute SCPI resolution value."""
+        if resolution_digits not in _inst_conf.VALID_RESOLUTIONS_DC_DIGITS:
+            raise ValueError(
+                f"Invalid resolution digit count: {resolution_digits}"
+            )
+        return 10 ** -resolution_digits
+
+    def translate_resolution_reverse(self, resolution_value: float) -> int:
+        """Convert an absolute SCPI resolution value back to GUI digits."""
+        value = float(resolution_value)
+        if value.is_integer() and int(value) in _inst_conf.VALID_RESOLUTIONS_DC_DIGITS:
+            return int(value)
+        for digits in _inst_conf.VALID_RESOLUTIONS_DC_DIGITS:
+            if abs(value - 10 ** -digits) < 1e-15:
+                return digits
+        raise ValueError(f"Invalid absolute resolution value: {resolution_value}")
     
     def translate_reverse(self, param_type, machine_value):
         """
@@ -80,7 +98,7 @@ class Translator:
         return {
             "range_mode": dcv_dict.get("range_mode"),
             "range_val": self.translate("dcv_range", dcv_dict.get("range_val")),
-            "resolution": dcv_dict.get("resolution"),
+            "resolution": self.translate_resolution(dcv_dict.get("resolution")),
             "zin": self.translate("impedence", dcv_dict.get("zin")),
             "aperture_mode": dcv_dict.get("aperture_mode"),
             "time": dcv_dict.get("time")
@@ -99,7 +117,7 @@ class Translator:
         return {
             "range_mode": dci_dict.get("range_mode"),
             "range_val": self.translate("dci_range", dci_dict.get("range_val")),
-            "resolution": dci_dict.get("resolution"),
+            "resolution": self.translate_resolution(dci_dict.get("resolution")),
             "aperture_mode": dci_dict.get("aperture_mode"),
             "time": dci_dict.get("time")
         }
@@ -138,7 +156,7 @@ class Translator:
         return {
             "range_mode": dcv_dict.get("range_mode"),
             "range_val": self.translate_reverse("dcv_range", dcv_dict.get("range_val")),
-            "resolution": dcv_dict.get("resolution"),
+            "resolution": self.translate_resolution_reverse(dcv_dict.get("resolution")),
             "zin": self.translate_reverse("impedence", dcv_dict.get("zin")),
             "aperture_mode": dcv_dict.get("aperture_mode"),
             "time": dcv_dict.get("time")
@@ -157,7 +175,7 @@ class Translator:
         return {
             "range_mode": dci_dict.get("range_mode"),
             "range_val": self.translate_reverse("dci_range", dci_dict.get("range_val")),
-            "resolution": dci_dict.get("resolution"),
+            "resolution": self.translate_resolution_reverse(dci_dict.get("resolution")),
             "aperture_mode": dci_dict.get("aperture_mode"),
             "time": dci_dict.get("time")
         }

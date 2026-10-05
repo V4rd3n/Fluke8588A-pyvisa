@@ -51,6 +51,10 @@ class Fluke8588A():
 		'''
 		return self.query("*IDN?")
 
+	def get_line_frequency(self) -> float:
+		"""Return the instrument power-line frequency in hertz."""
+		return float(self.query(":SYST:LFR?").strip())
+
 	def write(self, text):
 		'''
 		Write function
@@ -106,24 +110,32 @@ class Fluke8588A():
 		self.is_connected = False
 
 	def init_dcv(self, range_mode, range_val,  resolution_val, zin_val, aperture_mode, time_val):
+		self.set_dcv(range_mode, range_val, resolution_val, zin_val, aperture_mode, time_val)
+
+	def set_dcv(self, range_mode, range_val, resolution_val, zin_val, aperture_mode, time_val):
 		'''
 		Set the machine to dcv mode, and set up parameters
 		'''
 		root=InstrumentConfig.ROOT_DCV
 		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
 		self.setRangeMode(root, range_mode)
-		self.setRange(root, range_val)
-		self.setResolution(root, resolution_val)
+		if range_mode == InstrumentConfig.RANGE_MODE_MAN_STR:
+			self.setRange(root, range_val)
+		self.setResolutionValue(root, resolution_val)
 		self.setImpedence(root, zin_val)		
 		self.setTime(root, time_val)
 		self.setApertureMode(root, aperture_mode)
 
 	def init_dci(self, range_mode, range_val, resolution_val, aperture_mode, time_val):
+		self.set_dci(range_mode, range_val, resolution_val, aperture_mode, time_val)
+
+	def set_dci(self, range_mode, range_val, resolution_val, aperture_mode, time_val):
 		root=InstrumentConfig.ROOT_DCI
 		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
 		self.setRangeMode(root, range_mode)
-		self.setRange(root, range_val)
-		self.setResolution(root, resolution_val)
+		if range_mode == InstrumentConfig.RANGE_MODE_MAN_STR:
+			self.setRange(root, range_val)
+		self.setResolutionValue(root, resolution_val)
 		self.setTime(root, time_val)
 		self.setApertureMode(root, aperture_mode)
 
@@ -398,6 +410,14 @@ class Fluke8588A():
 		self.write(root + ":RES " + str(converted_resolution))
 		set_resolution = self.getResolution(root)
 		return self.__anti_convert_resolution(set_resolution)
+
+	def setResolutionValue(self, root, value):
+		"""Set an absolute resolution value as specified by the SCPI manual."""
+		resolution_value = float(value)
+		if resolution_value <= 0:
+			raise ValueError(f"Resolution must be positive, got {value}")
+		self.write(root + ":RES " + str(resolution_value))
+		return self.getResolution(root)
 	
 	def __convert_resolution(self, value):
 		return 10**(-value)
