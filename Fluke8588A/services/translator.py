@@ -1,4 +1,10 @@
-from Fluke8588A.data.spin_box_values import *
+from Fluke8588A.data.spin_box_values import (
+    get_dcv_impedence,
+    get_dcv_range,
+    get_dci_range,
+    get_ohm_modes,
+    get_ohm_range,
+)
 from Fluke8588A.instrument.config import InstrumentConfig as _inst_conf
 class Translator:
     def __init__(self):
@@ -7,11 +13,11 @@ class Translator:
         
         # GUI → Machine mappings by parameter type
         self._gui_to_machine_maps = {
-            "impedence": dict(zip(DCV_IMPEDENCE, _inst_conf.IMPEDANCES_DCV_VAL)),
-            "dcv_range": dict(zip(DCV_RANGE, _inst_conf.DCV_RANGE_VAL)),
-            "dci_range": dict(zip(I_RANGE, _inst_conf.DCI_RANGE_VAL)),
-            "ohm_range": dict(zip(OHM_RANGE, _inst_conf.OHM_RANGE_VAL)),
-            "ohm_mode" : dict(zip(OHM_MODES, _inst_conf.OHM_MODES_VAL))
+            "impedence": dict(zip(get_dcv_impedence(), _inst_conf.IMPEDANCES_DCV_VAL)),
+            "dcv_range": dict(zip(get_dcv_range(), _inst_conf.DCV_RANGE_VAL)),
+            "dci_range": dict(zip(get_dci_range(), _inst_conf.DCI_RANGE_VAL)),
+            "ohm_range": dict(zip(get_ohm_range(), _inst_conf.OHM_RANGE_VAL)),
+            "ohm_mode" : dict(zip(get_ohm_modes(), _inst_conf.OHM_MODES_VAL))
         }
         
         # Machine → GUI mappings by parameter type (reversed)
@@ -42,6 +48,8 @@ class Translator:
             )
         return 10 ** -resolution_digits
 
+    '''
+    Legacy reverse translation used by the removed instrument readback path.
     def translate_resolution_reverse(self, resolution_value: float) -> int:
         """Convert an absolute SCPI resolution value back to GUI digits."""
         value = float(resolution_value)
@@ -200,3 +208,4 @@ class Translator:
             "aperture_mode": ohms_dict.get("aperture_mode"),
             "time": ohms_dict.get("time")
         }
+    '''
