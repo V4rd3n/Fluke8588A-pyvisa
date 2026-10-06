@@ -1,15 +1,13 @@
 from PyQt6 import uic
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QMainWindow
-import os, json
+import os
 from Fluke8588A.data.spin_box_values import (
-	AC_COUNTGATE,
-	AC_PK2PK,
-	AC_SECREAD,
-	ACV_COUPIMP,
-	ACV_RANGE,
-	I_RANGE,
-	RMS_FILTER,
+	get_ac_count_gate,
+	get_ac_peak_to_peak,
+	get_ac_secondary_reading,
+	get_acv_coupling_impedance,
+	get_acv_range,
 	get_ac_digit_val,
 	get_dci_range,
 	get_dc_digit_val,
@@ -20,19 +18,19 @@ from Fluke8588A.data.spin_box_values import (
 	get_dcv_impedence,
 	get_dcv_range,
 	get_functions,
-	get_max_nplc,
-	get_max_time,
-	get_min_nplc,
-	get_min_time,
+	get_rms_filter,
 	get_ohm_modes,
 	get_ohm_range,
 	get_ohm_tru_range,
 )
 from Fluke8588A.instrument.config import InstrumentConfig
-import Fluke8588A.instrument.config as config 
 from Fluke8588A.data.settings import AciSettings, AcvSettings, DciSettings, DcvSettings, OhmsSettings
 from Fluke8588A.views.plot_widget import DmmPlotWidget
 main_window_loc = os.path.join(os.path.dirname(__file__), "..", "new_ui", "main_window.ui")
+
+#TODO: check ranges from manual (update settings)
+
+
 class MainWindow(QMainWindow):
 	scan_requested = pyqtSignal()
 	connect_requested = pyqtSignal(str)
@@ -142,19 +140,19 @@ class MainWindow(QMainWindow):
 		self.dcv_resol_spinbox.setRange(min(get_dc_digit_val()), max(get_dc_digit_val()))
 		self.dci_range_combobox.addItems(get_dci_range())
 		self.dci_resol_spinbox.setRange(min(get_dc_digit_val()), max(get_dc_digit_val()))
-		self.acv_range_combobox.addItems(ACV_RANGE)
+		self.acv_range_combobox.addItems(get_acv_range())
 		self.acv_resol_spinbox.setRange(min(get_ac_digit_val()), max(get_ac_digit_val()))
-		self.acv_filter_combobox.addItems(RMS_FILTER)
-		self.acv_couimp_combobox.addItems(ACV_COUPIMP)
-		self.acv_secread_combobox.addItems(AC_SECREAD)
-		self.acv_count_combobox.addItems(AC_COUNTGATE)
-		self.acv_pktpk_combobox.addItems(AC_PK2PK)
-		self.aci_range_combobox.addItems(I_RANGE)
+		self.acv_filter_combobox.addItems(get_rms_filter())
+		self.acv_couimp_combobox.addItems(get_acv_coupling_impedance())
+		self.acv_secread_combobox.addItems(get_ac_secondary_reading())
+		self.acv_count_combobox.addItems(get_ac_count_gate())
+		self.acv_pktpk_combobox.addItems(get_ac_peak_to_peak())
+		self.aci_range_combobox.addItems(get_dci_range())
 		self.aci_resol_spinbox.setRange(min(get_ac_digit_val()), max(get_ac_digit_val()))
-		self.aci_filter_combobox.addItems(RMS_FILTER)
-		self.aci_secread_combobox.addItems(AC_SECREAD)
-		self.aci_count_combobox.addItems(AC_COUNTGATE)
-		self.aci_pktpk_combobox.addItems(AC_PK2PK)
+		self.aci_filter_combobox.addItems(get_rms_filter())
+		self.aci_secread_combobox.addItems(get_ac_secondary_reading())
+		self.aci_count_combobox.addItems(get_ac_count_gate())
+		self.aci_pktpk_combobox.addItems(get_ac_peak_to_peak())
 		self.ohms_range_combobox.addItems(get_ohm_range())
 		self.ohms_resol_spinbox.setRange(min(get_dc_digit_val()), max(get_dc_digit_val()))
 		self.ohms_mode_combobox.addItems(get_ohm_modes())
@@ -166,9 +164,7 @@ class MainWindow(QMainWindow):
 			(self.dci_time_spinbox, self.dci_plc_spinbox),
 			(self.ohms_time_radiobutton, self.ohms_plc_radiobutton),
 		):
-			time_spinbox.setRange(get_min_time(), get_max_time())
 			time_spinbox.setDecimals(4)
-			plc_spinbox.setRange(get_min_nplc(), get_max_nplc())
 			plc_spinbox.setDecimals(3)
 		self._set_aperture_controls_enabled("DCV", self.dcv_man_radiobutton.isChecked())
 		self._set_aperture_controls_enabled("DCI", self.dci_man_radiobutton.isChecked())
@@ -374,6 +370,8 @@ class MainWindow(QMainWindow):
 		#add fucntion that shows current mode widgets
 
 
+	'''
+	Legacy JSON settings persistence.
 	def _save_to_json(self):
 		settings = {
 			"dcv": {
@@ -410,6 +408,7 @@ class MainWindow(QMainWindow):
 		}
 		with open(config.JSON_GUI_FILE_NAME, "w") as f:
 			json.dump(settings, f)	
+	'''
 		
 	def set_read(self, value: int):
 		self.measure_display_label.setText(str(value))
@@ -474,6 +473,21 @@ class MainWindow(QMainWindow):
 		)
 	)
 	"""
+
+	def set_aperture_ranges(
+		self,
+		min_time: float,
+		max_time: float,
+		min_nplc: float,
+		max_nplc: float,
+	) -> None:
+		for time_spinbox, plc_spinbox in (
+			(self.dcv_time_spinbox, self.dcv_plc_spinbox),
+			(self.dci_time_spinbox, self.dci_plc_spinbox),
+			(self.ohms_time_radiobutton, self.ohms_plc_radiobutton),
+		):
+			time_spinbox.setRange(min_time, max_time)
+			plc_spinbox.setRange(min_nplc, max_nplc)
 
 	def set_aperture_values(self, function: str, time: float, plc: float):
 		spinboxes = {

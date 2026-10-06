@@ -59,12 +59,17 @@ class OhmsSettings:
 class TriggerBaseSettings:
     source:     str
     count:      int
+    ecount:     int
     delay:      float
     delay_auto: bool
     holdoff:    float
     holdoff_auto: bool
     timer:      Optional[float]
     ext_edge:   Optional[str]
+    sig_coupling: Optional[str]
+    sig_slope:  Optional[str]
+    sig_level:  Optional[float]
+    sig_filter: Optional[bool]
 '''
 @dataclass
 class TriggerSettings:

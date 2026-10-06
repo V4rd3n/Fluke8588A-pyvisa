@@ -7,11 +7,11 @@
     <x>0</x>
     <y>0</y>
     <width>365</width>
-    <height>421</height>
+    <height>570</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+   <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
@@ -64,26 +64,6 @@
           <property name="sizeAdjustPolicy">
            <enum>QComboBox::AdjustToContents</enum>
           </property>
-          <item>
-           <property name="text">
-            <string>Immediate</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>External</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Internal</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Timer</string>
-           </property>
-          </item>
          </widget>
         </item>
        </layout>
@@ -451,6 +431,140 @@
        </layout>
       </item>
       <item>
+       <widget class="QGroupBox" name="signal_groupbox">
+        <property name="title">
+         <string>Signal Level</string>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_4">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_9">
+           <item>
+            <widget class="QLabel" name="label_7">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Coupling</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="tdccoup_radiobutton">
+             <property name="text">
+              <string>DC</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_3</string>
+             </attribute>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="taccoup_radiobutton">
+             <property name="text">
+              <string>AC</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_3</string>
+             </attribute>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_10">
+           <item>
+            <widget class="QLabel" name="label_9">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Slope</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="tpos_radiobutton">
+             <property name="text">
+              <string>+</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_4</string>
+             </attribute>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="tneg_radiobutton">
+             <property name="text">
+              <string>-</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_4</string>
+             </attribute>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_12">
+           <item>
+            <widget class="QLabel" name="label_10">
+             <property name="text">
+              <string>Level</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QDoubleSpinBox" name="tlevel_spinbox"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_11">
+           <item>
+            <widget class="QLabel" name="label_11">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Filter</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="tfiltoff_radiobutton">
+             <property name="text">
+              <string>OFF</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_5</string>
+             </attribute>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="tfilton_radiobutton">
+             <property name="text">
+              <string>ON</string>
+             </property>
+             <attribute name="buttonGroup">
+              <string notr="true">buttonGroup_5</string>
+             </attribute>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
        <spacer name="verticalSpacer_7">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
@@ -482,14 +596,14 @@
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="tset_button">
+         <widget class="QPushButton" name="tset_pushbutton">
           <property name="text">
            <string>SET</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="treset_button">
+         <widget class="QPushButton" name="treset_pushbutton">
           <property name="text">
            <string>RESET</string>
           </property>
@@ -520,5 +634,8 @@
  <buttongroups>
   <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_5"/>
  </buttongroups>
 </ui>

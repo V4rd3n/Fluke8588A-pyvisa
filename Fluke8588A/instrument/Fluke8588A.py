@@ -24,13 +24,13 @@ class Fluke8588A():
 	setApertureMode(root, value) / getApertureMode(root) : set/get aperture mode ("AUTO", "FAST", or "MAN")
 	"""
 
-	# only GPIB support
 	def __init__(self, address):
 		logging.info(__name__ + ' : Initializing instrument Fluke 8588A')
 		self.is_connected = False
 		self.__connect(address)
 		self._instr.timeout = InstrumentConfig.TIMEOUT_MS
 		self.plc_max = InstrumentConfig.NPLC_MAX
+		self._line_frequency = None
 		self.reset()
 		idn_string = self.identify()
 		logging.info("Instrument %s successfully initialized." % idn_string)
@@ -53,7 +53,9 @@ class Fluke8588A():
 
 	def get_line_frequency(self) -> float:
 		"""Return the instrument power-line frequency in hertz."""
-		return float(self.query(":SYST:LFR?").strip())
+		if self._line_frequency is None:
+			self._line_frequency = float(self.query(":SYST:LFR?").strip())
+		return self._line_frequency
 
 	def write(self, text):
 		'''
@@ -217,7 +219,8 @@ class Fluke8588A():
 		self.setTime(root, time_val)
 		self.setApertureMode(root, aperture_mode)
 
-	# dinamico in base a source, probabile switch state
+	'''
+	Legacy trigger initializer. Use the controller's trigger settings path instead.
 	def init_trigger_base(self, event, count, ecount, delay, holdoff):
 		root = InstrumentConfig.ROOT_TRIGGER
 		self.setReset(root)
@@ -225,6 +228,7 @@ class Fluke8588A():
 		self.setCount(root, ecount)
 		self.setDelay(root, delay)
 		self.setHoldoff(root, holdoff)
+	'''
 
 
 	def getApertureMode(self, root):
@@ -275,10 +279,12 @@ class Fluke8588A():
 		Output:
 			float, set value as string
 		'''
-		if not InstrumentConfig.MIN_TIME <= float(value) <= InstrumentConfig.MAX_TIME:
+		line_frequency = self.get_line_frequency()
+		nplc = float(value) * line_frequency
+		if not InstrumentConfig.NPLC_MIN <= nplc <= InstrumentConfig.NPLC_MAX:
 			raise ValueError(
-				f"TIME must be between {InstrumentConfig.MIN_TIME} "
-				f"and {InstrumentConfig.MAX_TIME}, got {value}"
+				f"TIME must produce between {InstrumentConfig.NPLC_MIN} "
+				f"and {InstrumentConfig.NPLC_MAX} NPLC at {line_frequency} Hz, got {value}"
 			)
 		self.write(root + ":APER " + str(value))
 		return self.getTime(root)
@@ -607,11 +613,6 @@ class Fluke8588A():
 	def setExternal(self, root, value):
 		self.write(f"{root}:EXTernal {value}")
 		return self.getExternal(root)
-
-	def getFilter(self, root):
-		return self.query(f"{root}:FILT?")
-	def getFilter(self, root, filter:bool):
-		return self.write(f"{root}:FILT {filter}")
 
 	def setImmediate(self, root):
 		self.write(f"{root}:IMMediate")

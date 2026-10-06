@@ -32,14 +32,8 @@ DIGI_V_COUPIMP = ["DC, Auto", "DC, 1MΩ", "DC, 10MΩ", "AC, 1MΩ", "AC, 10MΩ"]
 DIGI_I_COUPIMP = ["DC, Auto", "AC, Auto"]
 DIGI_FILTER = ["OFF", "100 kHZ", "3 MHz"]
 
-HZ=50
-MAX_TIME = 10
-MIN_TIME= 0.0001 
-MAX_NPLC= MAX_TIME*HZ 
-MIN_NPLC = 0.01 #corresponds to 0.0002 seconds, there is a descrepency that is due to machine specs
-
-
-
+#Trigger 
+TRIGGER_EVENTS = ["Bus", "External", "Hold", "Immediate", "Internal", "Line", "Manual", "Synchronous", "Timer"]
 
 def get_functions():
     return FUNCTIONS
@@ -53,6 +47,24 @@ def get_dci_range():
 def get_dcv_impedence():
     return DCV_IMPEDENCE
 
+def get_acv_range():
+    return ACV_RANGE
+
+def get_rms_filter():
+    return RMS_FILTER
+
+def get_acv_coupling_impedance():
+    return ACV_COUPIMP
+
+def get_ac_secondary_reading():
+    return AC_SECREAD
+
+def get_ac_count_gate():
+    return AC_COUNTGATE
+
+def get_ac_peak_to_peak():
+    return AC_PK2PK
+
 
 
 def get_dc_digit_val():
@@ -60,21 +72,6 @@ def get_dc_digit_val():
 
 def get_ac_digit_val():
     return SEV_DIGIT_VAL
-
-def get_hz():
-    return HZ
-
-def get_max_nplc():
-    return MAX_NPLC
-
-def get_min_nplc():
-    return MIN_NPLC
-
-def get_max_time():
-    return MAX_TIME
-
-def get_min_time():
-    return MIN_TIME
 
 def get_ohm_modes():
     return OHM_MODES
@@ -96,3 +93,7 @@ def get_digi_v_coupling_impedance():
 
 def get_digi_i_coupling_impedance():
     return DIGI_I_COUPIMP
+
+
+def get_trigger_events():
+    return TRIGGER_EVENTS

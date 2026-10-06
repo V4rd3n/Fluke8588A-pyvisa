@@ -5,7 +5,12 @@ import pyvisa
 
 from Fluke8588A.instrument.Fluke8588A import Fluke8588A
 from Fluke8588A.instrument.config import InstrumentConfig
-from Fluke8588A.data.settings import DcvSettings, DciSettings, OhmsSettings
+from Fluke8588A.data.settings import (
+    DcvSettings,
+    DciSettings,
+    OhmsSettings,
+    TriggerBaseSettings,
+)
 
 
 class InstrumentController:
@@ -125,6 +130,39 @@ class InstrumentController:
             raise RuntimeError("Cannot get line frequency: not connected to instrument")
 
         return self._instrument.get_line_frequency()
+
+    def reset_trigger_base(self) -> None:
+        """Reset the instrument's base-trigger subsystem."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot reset trigger base: not connected to instrument")
+        self._instrument.resetTrigger(InstrumentConfig.ROOT_TRIGGER)
+
+    # TODO: This is a test and should be reworked with a setTrigger in the Fluke8588A class
+    def set_trigger_base(self, settings: TriggerBaseSettings) -> None:
+        """Apply base-trigger settings to the connected instrument."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set trigger base: not connected to instrument")
+
+        root = InstrumentConfig.ROOT_TRIGGER
+        self._instrument.setSource(root, settings.source)
+        self._instrument.setCount(root, settings.count)
+        self._instrument.setEcount(root, settings.ecount)
+        self._instrument.setDelayMode(root, settings.delay_auto)
+        self._instrument.setDelay(root, settings.delay)
+        self._instrument.setHoldoffAuto(root, settings.holdoff_auto)
+        self._instrument.setHoldoff(root, settings.holdoff)
+        if settings.timer is not None:
+            self._instrument.setTimer(root, settings.timer)
+        if settings.ext_edge is not None:
+            self._instrument.setExternal(root, settings.ext_edge)
+        if settings.sig_coupling is not None:
+            self._instrument.setCoupling(root, settings.sig_coupling)
+        if settings.sig_slope is not None:
+            self._instrument.setSlope(root, settings.sig_slope)
+        if settings.sig_level is not None:
+            self._instrument.setLevel(root, settings.sig_level)
+        if settings.sig_filter is not None:
+            self._instrument.setFilter(root, settings.sig_filter)
     
     def reset(self) -> None:
         """
@@ -221,6 +259,9 @@ class InstrumentController:
         
         return self._instrument.query(command)
 
+    '''
+    Legacy generic SET/readback path. Active measurement methods configure
+    the instrument without querying it for accepted values.
     def set(self, mode: str, settings):
         """
         Configure instrument with given settings and return actual values.
@@ -320,3 +361,4 @@ class InstrumentController:
             return actual_settings
         
         raise ValueError(f"Invalid mode: {mode}")
+    '''
