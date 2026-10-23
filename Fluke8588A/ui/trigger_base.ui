@@ -405,28 +405,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="ext_combobox">
-          <item>
-           <property name="text">
-            <string>TTL Negative</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>TTL Positive</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Bipolar Negative</string>
-           </property>
-          </item>
-          <item>
-           <property name="text">
-            <string>Bipolar Positive</string>
-           </property>
-          </item>
-         </widget>
+         <widget class="QComboBox" name="ext_combobox"/>
         </item>
        </layout>
       </item>
@@ -632,10 +611,10 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_2"/>
-  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_3"/>
   <buttongroup name="buttonGroup_5"/>
  </buttongroups>
 </ui>

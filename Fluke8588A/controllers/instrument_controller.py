@@ -4,7 +4,7 @@ from typing import Optional, TYPE_CHECKING
 import pyvisa
 
 from Fluke8588A.instrument.Fluke8588A import Fluke8588A
-from Fluke8588A.instrument.config import InstrumentConfig
+from Fluke8588A.instrument import scpi
 from Fluke8588A.data.settings import (
     DcvSettings,
     DciSettings,
@@ -36,7 +36,7 @@ class InstrumentController:
                 try:
                     instrument = resource_manager.open_resource(address)
                     try:
-                        instrument.timeout = 2000
+                        instrument.timeout = scpi.SCAN_TIMEOUT_MS
                         identity = instrument.query("*IDN?").strip()
                     finally:
                         instrument.close()
@@ -135,15 +135,15 @@ class InstrumentController:
         """Reset the instrument's base-trigger subsystem."""
         if not self.is_connected():
             raise RuntimeError("Cannot reset trigger base: not connected to instrument")
-        self._instrument.resetTrigger(InstrumentConfig.ROOT_TRIGGER)
+        self._instrument.resetTrigger(scpi.ROOT_TRIGGER)
 
     # TODO: This is a test and should be reworked with a setTrigger in the Fluke8588A class
     def set_trigger_base(self, settings: TriggerBaseSettings) -> None:
-        """Apply base-trigger settings to the connected instrument."""
+        """Apply base-trigger settings (SCPI values) to the connected instrument."""
         if not self.is_connected():
             raise RuntimeError("Cannot set trigger base: not connected to instrument")
 
-        root = InstrumentConfig.ROOT_TRIGGER
+        root = scpi.ROOT_TRIGGER
         self._instrument.setSource(root, settings.source)
         self._instrument.setCount(root, settings.count)
         self._instrument.setEcount(root, settings.ecount)
@@ -151,17 +151,14 @@ class InstrumentController:
         self._instrument.setDelay(root, settings.delay)
         self._instrument.setHoldoffAuto(root, settings.holdoff_auto)
         self._instrument.setHoldoff(root, settings.holdoff)
-        if settings.timer is not None:
+        if settings.source == scpi.TRIGGER_SOURCE_TIMER:
             self._instrument.setTimer(root, settings.timer)
-        if settings.ext_edge is not None:
+        if settings.source == scpi.TRIGGER_SOURCE_EXTERNAL:
             self._instrument.setExternal(root, settings.ext_edge)
-        if settings.sig_coupling is not None:
+        if settings.source == scpi.TRIGGER_SOURCE_INTERNAL:
             self._instrument.setCoupling(root, settings.sig_coupling)
-        if settings.sig_slope is not None:
             self._instrument.setSlope(root, settings.sig_slope)
-        if settings.sig_level is not None:
             self._instrument.setLevel(root, settings.sig_level)
-        if settings.sig_filter is not None:
             self._instrument.setFilter(root, settings.sig_filter)
     
     def reset(self) -> None:
@@ -176,12 +173,12 @@ class InstrumentController:
         
         self._instrument.reset()
     
-    def set_dcv(self, settings: DcvSettings) -> None:
-        """Configure the connected instrument for DC voltage measurement."""
+    def set_dcv(self, settings: DcvSettings) -> DcvSettings:
+        """Configure DC voltage and return the values accepted by the instrument."""
         if not self.is_connected():
             raise RuntimeError("Cannot set DCV: not connected to instrument")
 
-        self._instrument.set_dcv(
+        actual = self._instrument.set_dcv(
             range_mode=settings.range_mode,
             range_val=settings.range_val,
             resolution_val=settings.resolution,
@@ -189,43 +186,22 @@ class InstrumentController:
             aperture_mode=settings.aperture_mode,
             time_val=settings.time,
         )
+        return DcvSettings(**actual)
 
-    def set_dci(self, settings: DciSettings) -> None:
-        """Configure the connected instrument for DC current measurement."""
+    def set_dci(self, settings: DciSettings) -> DciSettings:
+        """Configure DC current and return the values accepted by the instrument."""
         if not self.is_connected():
             raise RuntimeError("Cannot set DCI: not connected to instrument")
 
-        self._instrument.set_dci(
+        actual = self._instrument.set_dci(
             range_mode=settings.range_mode,
             range_val=settings.range_val,
             resolution_val=settings.resolution,
             aperture_mode=settings.aperture_mode,
             time_val=settings.time,
         )
+        return DciSettings(**actual)
 
-    def init_dcv(self, range_mode: str, range_val: float, resolution_val: int,
-                 zin_val: str, aperture_mode: str, time_val: float) -> None:
-        """
-        Initialize DC voltage measurement mode.
-        
-        Args:
-            range_mode: "AUTO" or "MAN"
-            range_val: Range value
-            resolution_val: Resolution in digits (4-8)
-            zin_val: Input impedance ("AUTO", "1M", or "10M")
-            aperture_mode: Aperture mode ("AUTO", "FAST", or "MAN")
-            time_val: 0.00001 to 10 seconds
-            
-        Raises:
-            RuntimeError: If not connected to instrument
-        """
-        if not self.is_connected():
-            raise RuntimeError("Cannot initialize DCV: not connected to instrument")
-        
-        self._instrument.init_dcv(
-            range_mode, range_val, resolution_val, zin_val, aperture_mode, time_val
-        )
-    
     def write(self, command: str) -> None:
         """
         Write command to instrument.
@@ -282,7 +258,7 @@ class InstrumentController:
         if mode == "DCV":
             from Fluke8588A.data.settings import DcvSettings
             
-            root = InstrumentConfig.ROOT_DCV
+            root = scpi.ROOT_DCV
             
             self.set_dcv(settings)
             
@@ -298,7 +274,7 @@ class InstrumentController:
             return actual_settings
         
         elif mode == "OHMS":    
-            root= InstrumentConfig.ROOT_RESISTANCE #sets as default
+            root= scpi.ROOT_RESISTANCE #sets as default
             # Determine range_mode based on range_val
             range_mode = "AUTO" if settings.range_val == "AUTO ON" else "MAN"
             # Convert filter and low_i to instrument format (0 or 1)
@@ -306,7 +282,7 @@ class InstrumentController:
             low_mode_val = 1 if settings.low_i else 0
             
             if settings.four==True:
-                root= InstrumentConfig.ROOT_FRESISTANCE
+                root= scpi.ROOT_FRESISTANCE
                 self._instrument.init_fresistance(
                     aperture_mode=settings.aperture_mode,
                     time_val=float(settings.time),
@@ -319,7 +295,7 @@ class InstrumentController:
                 )
 
             elif settings.four==False:
-                root= InstrumentConfig.ROOT_RESISTANCE
+                root= scpi.ROOT_RESISTANCE
                 self._instrument.init_resistance(
                     aperture_mode=settings.aperture_mode,
                     time_val=float(settings.time),
@@ -346,7 +322,7 @@ class InstrumentController:
         elif mode == 'DCI':
             from Fluke8588A.data.settings import DciSettings
                 
-            root = InstrumentConfig.ROOT_DCI
+            root = scpi.ROOT_DCI
             
             self.set_dci(settings)
             

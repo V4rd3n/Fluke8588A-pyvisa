@@ -1,61 +1,127 @@
-from Fluke8588A.data.spin_box_values import (
-    get_dcv_impedence,
-    get_dcv_range,
-    get_dci_range,
-    get_ohm_modes,
-    get_ohm_range,
-)
-from Fluke8588A.instrument.config import InstrumentConfig as _inst_conf
+import math
+
+from Fluke8588A.services import translation_tables as tables
+
+
 class Translator:
+    """Translate GUI values (data/gui_values.py) to SCPI values (instrument/scpi.py) and back."""
+
     def __init__(self):
         """Initialize the translator with mapping dictionaries keyed by parameter type."""
-        self.error_value = "NO_TRANS"
-        
         # GUI → Machine mappings by parameter type
-        self._gui_to_machine_maps = {
-            "impedence": dict(zip(get_dcv_impedence(), _inst_conf.IMPEDANCES_DCV_VAL)),
-            "dcv_range": dict(zip(get_dcv_range(), _inst_conf.DCV_RANGE_VAL)),
-            "dci_range": dict(zip(get_dci_range(), _inst_conf.DCI_RANGE_VAL)),
-            "ohm_range": dict(zip(get_ohm_range(), _inst_conf.OHM_RANGE_VAL)),
-            "ohm_mode" : dict(zip(get_ohm_modes(), _inst_conf.OHM_MODES_VAL))
-        }
-        
-        # Machine → GUI mappings by parameter type (reversed)
-        self._machine_to_gui_maps = {
-            key: {v: k for k, v in gui_map.items()}
-            for key, gui_map in self._gui_to_machine_maps.items()
-        }
-    
+        self._gui_to_machine_maps = tables.GUI_TO_SCPI
+
+        # Machine → GUI mappings by parameter type (reversed); on duplicate
+        # machine values the first GUI label wins
+        self._machine_to_gui_maps = {}
+        for key, gui_map in self._gui_to_machine_maps.items():
+            reverse_map = {}
+            for gui_value, machine_value in gui_map.items():
+                reverse_map.setdefault(machine_value, gui_value)
+            self._machine_to_gui_maps[key] = reverse_map
+
     def translate(self, param_type, gui_value):
         """
         Convert GUI value to machine value based on parameter type.
-        
-        Args:
-            param_type: Type of parameter ("zin", "dcv_range", "dci_range", "ohm_range")
-            gui_value: The GUI value to translate
-            
-        Returns:
-            str: The machine value, or error_value if not found
-        """
-        mapping = self._gui_to_machine_maps.get(param_type, {})
-        return mapping.get(gui_value, self.error_value)
 
-    def translate_resolution(self, resolution_digits: int) -> float:
-        """Convert the GUI digit count to the absolute SCPI resolution value."""
-        if resolution_digits not in _inst_conf.VALID_RESOLUTIONS_DC_DIGITS:
+        Args:
+            param_type: A key of translation_tables.GUI_TO_SCPI
+            gui_value: The GUI value to translate
+
+        Returns:
+            The machine value
+
+        Raises:
+            ValueError: If param_type or gui_value has no translation
+        """
+        mapping = self._gui_to_machine_maps.get(param_type)
+        if mapping is None:
+            raise ValueError(f"Unknown translation table: {param_type!r}")
+        if gui_value not in mapping:
+            raise ValueError(f"No {param_type} translation for GUI value {gui_value!r}")
+        return mapping[gui_value]
+
+    def translate_resolution(
+        self, digits: int, max_digits: int, max_resolution: float
+    ) -> float:
+        """
+        Convert displayed digits to the absolute SCPI resolution.
+
+        Args:
+            digits: Displayed digits selected in the GUI
+            max_digits: Maximum displayed digits of the function
+            max_resolution: Absolute resolution (SI units) of the selected
+                range at max_digits
+
+        Returns:
+            The absolute resolution to send to the instrument
+        """
+        if isinstance(max_resolution, str) or max_resolution <= 0:
+            raise ValueError(f"Invalid maximum resolution: {max_resolution!r}")
+        if not 0 < digits <= max_digits:
+            raise ValueError(f"Unsupported resolution digits: {digits}")
+        # One digit less means a resolution one decade coarser; round off the
+        # float noise of the product so the SCPI string stays clean
+        return float(f"{max_resolution * 10 ** (max_digits - digits):.12g}")
+
+    def translate_resolution_from_machine(
+        self, resolution_value, max_digits: int, max_resolution: float
+    ) -> int:
+        """
+        Convert the absolute resolution returned by the instrument to displayed digits.
+
+        Args:
+            resolution_value: Resolution returned by the instrument (SI units)
+            max_digits: Maximum displayed digits of the function
+            max_resolution: Absolute resolution (SI units) of the measured
+                range at max_digits
+
+        Returns:
+            The displayed digits closest to the instrument resolution
+        """
+        if isinstance(max_resolution, str) or max_resolution <= 0:
+            raise ValueError(f"Invalid maximum resolution: {max_resolution!r}")
+        value = float(resolution_value)
+        if value <= 0 or not math.isfinite(value):
             raise ValueError(
-                f"Invalid resolution digit count: {resolution_digits}"
+                f"Instrument returned an unsupported resolution: {resolution_value!r}"
             )
-        return 10 ** -resolution_digits
+        # The instrument may coerce the value, so take the nearest decade
+        steps = round(math.log10(value / max_resolution))
+        return max(1, min(max_digits, max_digits - steps))
+
+    def translate_from_machine(self, param_type, machine_value):
+        """Convert an instrument value to its corresponding GUI value."""
+        mapping = self._machine_to_gui_maps.get(param_type, {})
+        value = str(machine_value).strip()
+        if value in mapping:
+            return mapping[value]
+        try:
+            numeric_value = float(machine_value)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"Instrument returned an unsupported {param_type} value: "
+                f"{machine_value!r}"
+            ) from None
+        for instrument_value, gui_value in mapping.items():
+            try:
+                if float(instrument_value) == numeric_value:
+                    return gui_value
+            except (TypeError, ValueError):
+                continue
+        raise ValueError(
+            f"Instrument returned an unsupported {param_type} value: "
+            f"{machine_value!r}"
+        )
 
     '''
     Legacy reverse translation used by the removed instrument readback path.
     def translate_resolution_reverse(self, resolution_value: float) -> int:
         """Convert an absolute SCPI resolution value back to GUI digits."""
         value = float(resolution_value)
-        if value.is_integer() and int(value) in _inst_conf.VALID_RESOLUTIONS_DC_DIGITS:
+        if value.is_integer() and int(value) in scpi.VALID_RESOLUTIONS_DC_DIGITS:
             return int(value)
-        for digits in _inst_conf.VALID_RESOLUTIONS_DC_DIGITS:
+        for digits in scpi.VALID_RESOLUTIONS_DC_DIGITS:
             if abs(value - 10 ** -digits) < 1e-15:
                 return digits
         raise ValueError(f"Invalid absolute resolution value: {resolution_value}")
@@ -92,120 +158,4 @@ class Translator:
                 pass
         
         return self.error_value
-    
-    def translate_dcv(self, dcv_dict):
-        """
-        Translate DCV settings from GUI format to machine format.
-        
-        Args:
-            dcv_dict: Dictionary with DCV settings (range_val, zin, etc.)
-            
-        Returns:
-            dict: Translated DCV settings
-        """
-        return {
-            "range_mode": dcv_dict.get("range_mode"),
-            "range_val": self.translate("dcv_range", dcv_dict.get("range_val")),
-            "resolution": self.translate_resolution(dcv_dict.get("resolution")),
-            "zin": self.translate("impedence", dcv_dict.get("zin")),
-            "aperture_mode": dcv_dict.get("aperture_mode"),
-            "time": dcv_dict.get("time")
-        }
-    
-    def translate_dci(self, dci_dict):
-        """
-        Translate DCI settings from GUI format to machine format.
-        
-        Args:
-            dci_dict: Dictionary with DCI settings (range_val, etc.)
-            
-        Returns:
-            dict: Translated DCI settings
-        """
-        return {
-            "range_mode": dci_dict.get("range_mode"),
-            "range_val": self.translate("dci_range", dci_dict.get("range_val")),
-            "resolution": self.translate_resolution(dci_dict.get("resolution")),
-            "aperture_mode": dci_dict.get("aperture_mode"),
-            "time": dci_dict.get("time")
-        }
-    
-    def translate_ohms(self, ohms_dict):
-        """
-        Translate OHMS settings from GUI format to machine format.
-        
-        Args:
-            ohms_dict: Dictionary with OHMS settings (range_val, mode, etc.)
-            
-        Returns:
-            dict: Translated OHMS settings
-        """
-        return {
-            "four": ohms_dict.get("four"),
-            "range_val": self.translate("ohm_range", ohms_dict.get("range_val")),
-            "resolution": ohms_dict.get("resolution"),
-            "mode": self.translate("ohm_mode", ohms_dict.get("mode")),
-            "filter": ohms_dict.get("filter"),
-            "low_i": ohms_dict.get("low_i"),
-            "aperture_mode": ohms_dict.get("aperture_mode"),
-            "time": ohms_dict.get("time")
-        }
-    
-    def translate_dcv_reverse(self, dcv_dict):
-        """
-        Translate DCV settings from machine format back to GUI format.
-        
-        Args:
-            dcv_dict: Dictionary with DCV settings in machine format (range_val, zin, etc.)
-            
-        Returns:
-            dict: Translated DCV settings in GUI format
-        """
-        return {
-            "range_mode": dcv_dict.get("range_mode"),
-            "range_val": self.translate_reverse("dcv_range", dcv_dict.get("range_val")),
-            "resolution": self.translate_resolution_reverse(dcv_dict.get("resolution")),
-            "zin": self.translate_reverse("impedence", dcv_dict.get("zin")),
-            "aperture_mode": dcv_dict.get("aperture_mode"),
-            "time": dcv_dict.get("time")
-        }
-    
-    def translate_dci_reverse(self, dci_dict):
-        """
-        Translate DCI settings from machine format back to GUI format.
-        
-        Args:
-            dci_dict: Dictionary with DCI settings in machine format (range_val, etc.)
-            
-        Returns:
-            dict: Translated DCI settings in GUI format
-        """
-        return {
-            "range_mode": dci_dict.get("range_mode"),
-            "range_val": self.translate_reverse("dci_range", dci_dict.get("range_val")),
-            "resolution": self.translate_resolution_reverse(dci_dict.get("resolution")),
-            "aperture_mode": dci_dict.get("aperture_mode"),
-            "time": dci_dict.get("time")
-        }
-    
-    def translate_ohms_reverse(self, ohms_dict):
-        """
-        Translate OHMS settings from machine format back to GUI format.
-        
-        Args:
-            ohms_dict: Dictionary with OHMS settings in machine format (range_val, mode, etc.)
-            
-        Returns:
-            dict: Translated OHMS settings in GUI format
-        """
-        return {
-            "four": ohms_dict.get("four"),
-            "range_val": self.translate_reverse("ohm_range", ohms_dict.get("range_val")),
-            "resolution": ohms_dict.get("resolution"),
-            "mode": self.translate_reverse("ohm_mode", ohms_dict.get("mode")),
-            "filter": ohms_dict.get("filter"),
-            "low_i": ohms_dict.get("low_i"),
-            "aperture_mode": ohms_dict.get("aperture_mode"),
-            "time": ohms_dict.get("time")
-        }
     '''

@@ -3,7 +3,7 @@ from PyQt6 import QtWidgets, uic
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-UI_FILE = ROOT / "new_ui" / "trigger_base.ui"
+UI_FILE = ROOT / "ui" / "trigger_base.ui"
 
 
 def read_trigger_settings(window):

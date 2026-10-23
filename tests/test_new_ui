@@ -1,0 +1,10 @@
+from pathlib import Path
+from PyQt6 import QtWidgets, uic
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+app = QtWidgets.QApplication(sys.argv)
+window = uic.loadUi(str(ROOT / "Fluke8588A" / "ui" / "trigger_advanced.ui"))
+# window = uic.loadUi(str(ROOT / "Fluke8588A" / "ui" / "graph_window.ui"))
+window.show()
+app.exec()

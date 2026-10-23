@@ -1,6 +1,7 @@
 import pyvisa
 import logging
-from Fluke8588A.instrument.config import InstrumentConfig
+import math
+from Fluke8588A.instrument import scpi
 #CLASSE DEL DMM Fluke 8588A
 class Fluke8588A():
 	"""
@@ -15,10 +16,11 @@ class Fluke8588A():
 	close() : close the connection
 	
 	Configuration Methods:
-	init_dcv(range_mode, range_val, resolution_val, zin_val, aperture_mode, nplc_val) : initialize DC voltage mode
+	set_dcv(range_mode, range_val, resolution_val, zin_val, aperture_mode, time_val) : set DC voltage mode, returns the values read back
+	check_errors() : empties the error queue, raises if it held errors
 	setRange(root, value) / getRange(root) : set/get measurement range
 	setResolution(root, value) / getResolution(root) : set/get resolution
-	setTime(root, value) / getTime(root) : set/get NPLC value (1plc=50Hz in EU)
+	setTime(root, value) / getTime(root) : set/get aperture value in seconds
 	setImpedence(root, value) / getImp(root) : set/get input impedance
 	setRangeMode(root, value) / getRangeMode(root) : set/get range mode ("AUTO" or "MAN")
 	setApertureMode(root, value) / getApertureMode(root) : set/get aperture mode ("AUTO", "FAST", or "MAN")
@@ -28,8 +30,7 @@ class Fluke8588A():
 		logging.info(__name__ + ' : Initializing instrument Fluke 8588A')
 		self.is_connected = False
 		self.__connect(address)
-		self._instr.timeout = InstrumentConfig.TIMEOUT_MS
-		self.plc_max = InstrumentConfig.NPLC_MAX
+		self._instr.timeout = scpi.TIMEOUT_MS
 		self._line_frequency = None
 		self.reset()
 		idn_string = self.identify()
@@ -111,41 +112,91 @@ class Fluke8588A():
 		self._rm.close()
 		self.is_connected = False
 
-	def init_dcv(self, range_mode, range_val,  resolution_val, zin_val, aperture_mode, time_val):
-		self.set_dcv(range_mode, range_val, resolution_val, zin_val, aperture_mode, time_val)
+	def check_errors(self):
+		'''
+		Empties the instrument error queue
+		Input:
+			none
+		Output:
+			none, raises RuntimeError listing the queued errors if any
+		'''
+		errors = []
+		for _ in range(scpi.ERROR_QUEUE_MAX_READS):
+			answer = self.query(":SYST:ERR?").strip()
+			if int(answer.split(",", 1)[0]) == 0:
+				break
+			errors.append(answer)
+		if errors:
+			raise RuntimeError("Instrument error: " + "; ".join(errors))
 
 	def set_dcv(self, range_mode, range_val, resolution_val, zin_val, aperture_mode, time_val):
 		'''
 		Set the machine to dcv mode, and set up parameters
+		Input:
+			range_mode    : "AUTO" or "MAN"
+			range_val     : manual range; with "AUTO" it is the range the
+			                resolution refers to, then autorange is enabled
+			resolution_val: absolute resolution on range_val
+			zin_val       : "AUTO", "1M" or "10M"
+			aperture_mode : "AUTO", "FAST" or "MAN"
+			time_val      : aperture in seconds, written only with "MAN"
+		Output:
+			dict, values read back from the instrument after all writes
 		'''
-		root=InstrumentConfig.ROOT_DCV
+		root=scpi.ROOT_DCV
+		self.write("*CLS")
 		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
-		self.setRangeMode(root, range_mode)
-		if range_mode == InstrumentConfig.RANGE_MODE_MAN_STR:
-			self.setRange(root, range_val)
+		# RES is interpreted on the active range and kept in digits when the
+		# range changes, so it is written on a manual range before autorange
+		self.setRange(root, range_val)
 		self.setResolutionValue(root, resolution_val)
-		self.setImpedence(root, zin_val)		
-		self.setTime(root, time_val)
+		self.setRangeMode(root, range_mode)
+		self.setImpedence(root, zin_val)
 		self.setApertureMode(root, aperture_mode)
+		if aperture_mode == scpi.APERTURE_MODE_MAN:
+			self.setTime(root, time_val)
+		self.check_errors()
+		# Read back only after all writes: a later command can change an earlier value
+		return {
+			"range_mode": self.getRangeMode(root),
+			"range_val": self.getRange(root),
+			"resolution": self.getResolutionValue(root),
+			"zin": self.getImp(root),
+			"aperture_mode": self.getApertureMode(root),
+			"time": self.getTime(root),
+		}
 
 	def init_dci(self, range_mode, range_val, resolution_val, aperture_mode, time_val):
 		self.set_dci(range_mode, range_val, resolution_val, aperture_mode, time_val)
 
 	def set_dci(self, range_mode, range_val, resolution_val, aperture_mode, time_val):
-		root=InstrumentConfig.ROOT_DCI
+		root=scpi.ROOT_DCI
 		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
-		self.setRangeMode(root, range_mode)
-		if range_mode == InstrumentConfig.RANGE_MODE_MAN_STR:
-			self.setRange(root, range_val)
-		self.setResolutionValue(root, resolution_val)
-		self.setTime(root, time_val)
-		self.setApertureMode(root, aperture_mode)
+		actual_range_mode = self.setRangeMode(root, range_mode)
+		if range_mode == scpi.RANGE_MODE_MAN_STR:
+			actual_range_val = self.setRange(root, range_val)
+		else:
+			actual_range_val = self.getRange(root)
+		actual_resolution = self.setResolutionValue(root, resolution_val)
+		actual_time = (
+			self.setTime(root, time_val)
+			if aperture_mode == scpi.APERTURE_MODE_MAN
+			else self.getTime(root)
+		)
+		actual_aperture_mode = self.setApertureMode(root, aperture_mode)
+		return {
+			"range_mode": actual_range_mode,
+			"range_val": actual_range_val,
+			"resolution": actual_resolution,
+			"aperture_mode": actual_aperture_mode,
+			"time": actual_time,
+		}
 
 	def init_aci(self, blimit, counter_Coupling, counter_gate, coupling, filter, range_mode, range_val, resolution_val, secondary, secondary_method):
 		'''
 		Set the machine to aci mode, and set up parameters
 		'''
-		root = InstrumentConfig.ROOT_ACI
+		root = scpi.ROOT_ACI
 		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
 		self.setBlimit(root, blimit)
 		self.setCounterCoupling(root, counter_Coupling)
@@ -195,7 +246,7 @@ class Fluke8588A():
 		self.setSecondaryMethod(root, secondary_method)
 	
 	def init_resistance(self, aperture_mode, time_val, mode_val, low_mode_val, range_mode, range_val, resolution_val, filter_val):
-		root=InstrumentConfig.ROOT_RESISTANCE
+		root=scpi.ROOT_RESISTANCE
 		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
 		self.setWireMode(root, mode_val)
 		self.setLowCurrentMode(root, low_mode_val)
@@ -208,7 +259,7 @@ class Fluke8588A():
 	
 
 	def init_fresistance(self, aperture_mode, time_val, mode_val, low_mode_val, range_mode, range_val, resolution_val, filter_val):
-		root=InstrumentConfig.ROOT_FRESISTANCE
+		root=scpi.ROOT_FRESISTANCE
 		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
 		self.setWireMode(root, mode_val)
 		self.setLowCurrentMode(root, low_mode_val)
@@ -222,7 +273,7 @@ class Fluke8588A():
 	'''
 	Legacy trigger initializer. Use the controller's trigger settings path instead.
 	def init_trigger_base(self, event, count, ecount, delay, holdoff):
-		root = InstrumentConfig.ROOT_TRIGGER
+		root = scpi.ROOT_TRIGGER
 		self.setReset(root)
 		self.setCount(root, count)
 		self.setCount(root, ecount)
@@ -249,10 +300,10 @@ class Fluke8588A():
 		Output:
 			string, set value: "AUTO", "FAST", or "MAN"
 		'''
-		if value not in InstrumentConfig.VALID_APERTURE_MODES:
+		if value not in scpi.VALID_APERTURE_MODES:
 			raise ValueError(
 				f"Invalid aperture mode '{value}'. "
-				f"Expected one of {InstrumentConfig.VALID_APERTURE_MODES}"
+				f"Expected one of {scpi.VALID_APERTURE_MODES}"
 			)
 		cmd = root + ":APER:MODE " + str(value)
 		logging.info(f"[APERTURE] Sending: {cmd}")
@@ -263,7 +314,7 @@ class Fluke8588A():
 	
 	def getTime(self, root):
 		'''
-		Get Nplc value for given root
+		Get aperture value in seconds for given root
 		Input:
 			root
 		Output:
@@ -272,21 +323,17 @@ class Fluke8588A():
 		return float(self.query(root+":APER?"))
 	def setTime(self, root, value):
 		'''
-		Sets seonds value for given root.
+		Sets aperture value in seconds for given root.
 		Input:
 			root  : SCPI root string e.g. ":VOLT:DC"
-			value : float between 20μ and 10. Seconds
+			value : aperture value in seconds
 		Output:
-			float, set value as string
+			float, accepted aperture value in seconds
 		'''
-		line_frequency = self.get_line_frequency()
-		nplc = float(value) * line_frequency
-		if not InstrumentConfig.NPLC_MIN <= nplc <= InstrumentConfig.NPLC_MAX:
-			raise ValueError(
-				f"TIME must produce between {InstrumentConfig.NPLC_MIN} "
-				f"and {InstrumentConfig.NPLC_MAX} NPLC at {line_frequency} Hz, got {value}"
-			)
-		self.write(root + ":APER " + str(value))
+		aperture = float(value)
+		if aperture <= 0:
+			raise ValueError(f"Aperture value must be positive, got {value}")
+		self.write(root + ":APER " + str(aperture))
 		return self.getTime(root)
 
 	def getImp(self, root):
@@ -307,10 +354,10 @@ class Fluke8588A():
 		Output:
 			string, set value: "AUTO", "1M", or "10M"
 		'''
-		if value not in InstrumentConfig.IMPEDANCES_DCV_VAL:
+		if value not in scpi.VALID_DCV_IMPEDANCES:
 			raise ValueError(
 				f"Invalid impedance '{value}'. "
-				f"Expected one of {InstrumentConfig.IMPEDANCES_DCV_VAL}"
+				f"Expected one of {scpi.VALID_DCV_IMPEDANCES}"
 			)
 		self.write(root + ":IMP " + str(value))
 		return self.getImp(root)
@@ -326,9 +373,9 @@ class Fluke8588A():
 		'''
 		response = int(float(self.query(root+":RANG:AUTO?")))
 		if response != 0:
-			return InstrumentConfig.RANGE_MODE_AUTO_STR
+			return scpi.RANGE_MODE_AUTO_STR
 		elif response == 0:
-			return InstrumentConfig.RANGE_MODE_MAN_STR
+			return scpi.RANGE_MODE_MAN_STR
 		else:
 			raise ValueError(f"Unexpected range mode value returned by machine: {response}")
 	def setRangeMode(self, root, value):
@@ -340,15 +387,15 @@ class Fluke8588A():
 		Output:
 			string, set value: "AUTO" or "MAN"
 		'''
-		if value == InstrumentConfig.RANGE_MODE_AUTO_STR:
-			converted_value = InstrumentConfig.RANGE_MODE_AUTO
-		elif value == InstrumentConfig.RANGE_MODE_MAN_STR:
-			converted_value = InstrumentConfig.RANGE_MODE_MAN
+		if value == scpi.RANGE_MODE_AUTO_STR:
+			converted_value = scpi.RANGE_MODE_AUTO
+		elif value == scpi.RANGE_MODE_MAN_STR:
+			converted_value = scpi.RANGE_MODE_MAN
 		else:
 			raise ValueError(
 				f"Invalid range mode '{value}'. "
-				f"Expected '{InstrumentConfig.RANGE_MODE_AUTO_STR}' "
-				f"or '{InstrumentConfig.RANGE_MODE_MAN_STR}'"
+				f"Expected '{scpi.RANGE_MODE_AUTO_STR}' "
+				f"or '{scpi.RANGE_MODE_MAN_STR}'"
 			)
 		self.write(root + ":RANG:AUTO " + str(converted_value))
 		return self.getRangeMode(root)
@@ -402,20 +449,19 @@ class Fluke8588A():
 		is_ac = "AC" in root.upper()
 		
 		if is_ac:
-			if digit_value not in InstrumentConfig.VALID_RESOLUTIONS_AC_DIGITS:
+			if digit_value not in scpi.VALID_RESOLUTIONS_AC_DIGITS:
 				raise ValueError(
-					f"AC resolution must be one of {InstrumentConfig.VALID_RESOLUTIONS_AC_DIGITS}, got {digit_value}"
+					f"AC resolution must be one of {scpi.VALID_RESOLUTIONS_AC_DIGITS}, got {digit_value}"
 				)
 		else:
-			if digit_value not in InstrumentConfig.VALID_RESOLUTIONS_DC_DIGITS:
+			if digit_value not in scpi.VALID_RESOLUTIONS_DC_DIGITS:
 				raise ValueError(
-					f"DC resolution must be one of {InstrumentConfig.VALID_RESOLUTIONS_DC_DIGITS}, got {digit_value}"
+					f"DC resolution must be one of {scpi.VALID_RESOLUTIONS_DC_DIGITS}, got {digit_value}"
 				)
 		
 		converted_resolution = self.__convert_resolution(digit_value)
 		self.write(root + ":RES " + str(converted_resolution))
-		set_resolution = self.getResolution(root)
-		return self.__anti_convert_resolution(set_resolution)
+		return self.getResolution(root)
 
 	def setResolutionValue(self, root, value):
 		"""Set an absolute resolution value as specified by the SCPI manual."""
@@ -423,7 +469,11 @@ class Fluke8588A():
 		if resolution_value <= 0:
 			raise ValueError(f"Resolution must be positive, got {value}")
 		self.write(root + ":RES " + str(resolution_value))
-		return self.getResolution(root)
+		return self.getResolutionValue(root)
+
+	def getResolutionValue(self, root):
+		"""Get the absolute resolution value for given root."""
+		return float(self.query(root + ":RES?").strip())
 	
 	def __convert_resolution(self, value):
 		return 10**(-value)
@@ -434,19 +484,14 @@ class Fluke8588A():
 		if value >= 4 and value <= 8 and value == int(value):
 			return int(value)
 		
-		# Otherwise, convert from scientific notation (1E-4 -> 4 digits)
-		formatted = f"{float(value):.17f}"
-		after_decimal = formatted.split(".")[1]
-		for i, digit in enumerate(after_decimal, start=1):
-			if digit == '1':
-				return i
-			elif digit != '0':
-				raise ValueError(
-					f"Unexpected resolution from instrument: {value}. "
-				)
-		raise ValueError(
-			f"No significant digit found in resolution value: {value}"
-		)
+		# Otherwise, convert the absolute resolution (1E-4 -> 4 digits).
+		resolution = float(value)
+		if resolution <= 0 or not math.isfinite(resolution):
+			raise ValueError(f"Invalid resolution from instrument: {value}")
+		digits = round(-math.log10(resolution))
+		if math.isclose(resolution, 10 ** -digits, rel_tol=1e-9, abs_tol=1e-15):
+			return digits
+		raise ValueError(f"Unexpected resolution from instrument: {value}")
 
 	#ACI
 	def getBlimit(self, root):
@@ -469,12 +514,6 @@ class Fluke8588A():
 	def setGateMode(self, root, value:bool):
 		self.write(f"{root}:COUNter:GATE:AUTO {value}")
 		return self.getGateMode(root)
-
-	def getCoupling(self, root):
-			return self.query(f"{root}:COUPling?")
-
-	def setCoupling(self, root, value):
-		self.write(f"{root}:COUPling {value}")
 
 	def getFilter(self, root):
 		return bool(int(self.query(f"{root}:FILTer?").strip()))
@@ -575,9 +614,6 @@ class Fluke8588A():
 	def setEpochStop(self, root, date:str):
 		return self.write(f"{root}:EPOC:STOP {date}")
 
-	def setImmediate(self, root):
-		return self.write(f"{root}")
-	
 	#ARM1 ARM2
 	def getCount(self, root):
 		return self.query(f"{root}:COUNt?")
@@ -599,8 +635,9 @@ class Fluke8588A():
 	def getDelayMode(self, root):
 		return self.query(f"{root}:DELay:AUTO?")
 	def setDelayMode(self, root, value:bool):
-		self.write(f"{root}:DELay:AUTO {value}")
-		return self.getDelay(root)
+		state = "ON" if value else "OFF"
+		self.write(f"{root}:DELay:AUTO {state}")
+		return self.getDelayMode(root)
 	
 	def getEcount(self, root):
 		return self.query(f"{root}:ECOunt?")
@@ -650,8 +687,9 @@ class Fluke8588A():
 	# TRIGGER 
 	def getHoldoffAuto(self, root):
 		return self.query(f"{root}:HOLDoff:AUTO?")
-	def setHoldoffAuto(self, root, value):
-		self.write(f"{root}:HOLDoff:AUTO {value}")
+	def setHoldoffAuto(self, root, value: bool):
+		state = "ON" if value else "OFF"
+		self.write(f"{root}:HOLDoff:AUTO {state}")
 		return self.getHoldoffAuto(root)
 
 	def getHoldoff(self, root):
@@ -686,8 +724,8 @@ class Fluke8588A():
 		return self.query(f"{root}:MODE?").strip()
 	def setWireMode(self, root, value):
 		'''
-		input: (root, NORMal || HIV || TRUE);
-		Output:  NORMal|| HIV || TRUE ;
+		input: (root, NORMal || TRUE);
+		Output:  NORMal || TRUE ;
 		Sets the 2-wire Ohms mode, returns the mode that has been set in machine.
 		'''
 		self.write(f"{root}:MODE {value}")

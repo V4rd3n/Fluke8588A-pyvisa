@@ -70,15 +70,3 @@ class TriggerBaseSettings:
     sig_slope:  Optional[str]
     sig_level:  Optional[float]
     sig_filter: Optional[bool]
-'''
-@dataclass
-class TriggerSettings:
-    init_cont:    bool  = False
-    arm_layer1:   TriggerLayerSettings = field(default_factory=TriggerLayerSettings)
-    arm_layer2:   TriggerLayerSettings = field(default_factory=TriggerLayerSettings)
-    trigger:      TriggerLayerSettings = field(default_factory=TriggerLayerSettings)
-    holdoff:      float = 0.0
-    holdoff_auto: bool  = True
-    ext_edge:     str   = "NEGative"
-    ext_type:     str   = "TTL"
-'''

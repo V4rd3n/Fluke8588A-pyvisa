@@ -1,6 +1,6 @@
 import logging
 from Fluke8588A.instrument.Fluke8588A import Fluke8588A
-from Fluke8588A.instrument.config import InstrumentConfig
+from Fluke8588A.instrument import scpi
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,7 +14,7 @@ def test_resistance():
     """
     try:
         # Connect and identify
-        fluke = Fluke8588A(InstrumentConfig.DEFAULT_ADDRESS)
+        fluke = Fluke8588A(scpi.DEFAULT_ADDRESS)
         print(f"Instrument: {fluke.identify()}")
         
         # Configure for resistance measurement (2-wire, AUTO range)

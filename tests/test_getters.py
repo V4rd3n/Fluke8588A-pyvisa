@@ -1,6 +1,6 @@
 import logging
 from Fluke8588A.instrument.Fluke8588A import Fluke8588A
-from Fluke8588A.instrument.config import InstrumentConfig
+from Fluke8588A.instrument import scpi
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,11 +14,11 @@ def test_getters():
     """
     try:
         # Connect and initialize
-        fluke = Fluke8588A(InstrumentConfig.DEFAULT_ADDRESS)
+        fluke = Fluke8588A(scpi.DEFAULT_ADDRESS)
         print(f"Connected: {fluke.identify()}\n")
         
         # Initialize resistance mode
-        root = InstrumentConfig.ROOT_RESISTANCE
+        root = scpi.ROOT_RESISTANCE
         fluke.init_resistance(
             aperture_mode="AUTO",
             time_val=1,
@@ -72,8 +72,8 @@ def test_getters():
         
         # Test DCV mode
         print("=== DCV MODE GETTERS ===\n")
-        fluke = Fluke8588A(InstrumentConfig.DEFAULT_ADDRESS)
-        root_dcv = InstrumentConfig.ROOT_DCV
+        fluke = Fluke8588A(scpi.DEFAULT_ADDRESS)
+        root_dcv = scpi.ROOT_DCV
         
         fluke.init_dcv(
             range_mode="AUTO",
@@ -109,8 +109,8 @@ def test_getters():
         
         # Test DCI mode
         print("=== DCI MODE GETTERS ===\n")
-        fluke = Fluke8588A(InstrumentConfig.DEFAULT_ADDRESS)
-        root_dci = InstrumentConfig.ROOT_DCI
+        fluke = Fluke8588A(scpi.DEFAULT_ADDRESS)
+        root_dci = scpi.ROOT_DCI
         
         fluke.init_dci(
             range_mode="AUTO",

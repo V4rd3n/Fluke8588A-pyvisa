@@ -3,7 +3,7 @@ from typing import Optional
 import logging
 import random
 import time
-from Fluke8588A.instrument.config import InstrumentConfig
+from Fluke8588A.instrument import scpi
 from Fluke8588A.data.settings import DcvSettings
 
 class InstrumentControllerTest:
@@ -50,7 +50,7 @@ class InstrumentControllerTest:
             self.disconnect()
         
         print(f"[TEST] Connecting to instrument at GPIB address: {address}")
-        print(f"[TEST] Would open: {InstrumentConfig.GPIB_PREFIX}{address}{InstrumentConfig.GPIB_SUFFIX}")
+        print(f"[TEST] Would open: {scpi.GPIB_PREFIX}{address}{scpi.GPIB_SUFFIX}")
         self._address = address
         self._is_connected = True
         logging.info(f"TEST: Connected to mock instrument at address {address}")
@@ -160,13 +160,13 @@ class InstrumentControllerTest:
         print(f"[TEST]   Input Impedance: {zin}")
         print(f"[TEST]   Aperture Mode: {aperture_mode}")
         print(f"[TEST]   Time: {time}")
-        print(f"[TEST] Would send: :FUNC \"{InstrumentConfig.ROOT_DCV}\"")
-        print(f"[TEST] Would send: {InstrumentConfig.ROOT_DCV}:RANG:AUTO {1 if range_mode == 'AUTO' else 0}")
-        print(f"[TEST] Would send: {InstrumentConfig.ROOT_DCV}:RANG {range_val}")
-        print(f"[TEST] Would send: {InstrumentConfig.ROOT_DCV}:RES {10**(-resolution_val)}")
-        print(f"[TEST] Would send: {InstrumentConfig.ROOT_DCV}:IMP {zin}")
-        print(f"[TEST] Would send: {InstrumentConfig.ROOT_DCV}:APER:MODE {aperture_mode}")
-        print(f"[TEST] Would send: {InstrumentConfig.ROOT_DCV}:APER {time}")
+        print(f"[TEST] Would send: :FUNC \"{scpi.ROOT_DCV}\"")
+        print(f"[TEST] Would send: {scpi.ROOT_DCV}:RANG:AUTO {1 if range_mode == 'AUTO' else 0}")
+        print(f"[TEST] Would send: {scpi.ROOT_DCV}:RANG {range_val}")
+        print(f"[TEST] Would send: {scpi.ROOT_DCV}:RES {10**(-resolution_val)}")
+        print(f"[TEST] Would send: {scpi.ROOT_DCV}:IMP {zin}")
+        print(f"[TEST] Would send: {scpi.ROOT_DCV}:APER:MODE {aperture_mode}")
+        print(f"[TEST] Would send: {scpi.ROOT_DCV}:APER {time}")
         
         # Update mock state
         self._mock_state['range_mode'] = range_mode

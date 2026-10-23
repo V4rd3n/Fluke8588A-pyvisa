@@ -4,7 +4,7 @@ from PyQt6 import QtWidgets, uic
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-UI_FILE = ROOT / "new_ui" / "main_window.ui"
+UI_FILE = ROOT / "ui" / "main_window.ui"
 
 def _scan_devices():
     window.scan_combobox.clear()
