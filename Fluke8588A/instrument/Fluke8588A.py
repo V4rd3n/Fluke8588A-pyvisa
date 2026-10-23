@@ -1,6 +1,7 @@
 import pyvisa
 import logging
-import math
+# Unused: only the commented digit resolution helpers need it
+# import math
 from Fluke8588A.instrument import scpi
 #CLASSE DEL DMM Fluke 8588A
 class Fluke8588A():
@@ -17,9 +18,15 @@ class Fluke8588A():
 	
 	Configuration Methods:
 	set_dcv(range_mode, range_val, resolution_val, zin_val, aperture_mode, time_val) : set DC voltage mode, returns the values read back
+	set_dci(range_mode, range_val, resolution_val, aperture_mode, time_val) : set DC current mode, returns the values read back
+	set_acv(range_mode, range_val, resolution_val, bandwidth, filter_val, coupling_signal, ...) : set AC voltage mode, returns the values read back
+	set_aci(range_mode, range_val, resolution_val, filter_val, coupling_signal, ...) : set AC current mode, returns the values read back
+	set_ohms(measurement, range_mode, range_val, resolution_val, ...) : set 2-wire/4-wire ohms mode, returns the values read back
+	set_digitize(measurement, range_val, coupling, filter_val, aperture) : set digitize voltage/current mode, returns the values read back
+	select_function(root) : selects the function of root if not already active
 	check_errors() : empties the error queue, raises if it held errors
 	setRange(root, value) / getRange(root) : set/get measurement range
-	setResolution(root, value) / getResolution(root) : set/get resolution
+	setResolutionValue(root, value) / getResolutionValue(root) : set/get absolute resolution
 	setTime(root, value) / getTime(root) : set/get aperture value in seconds
 	setImpedence(root, value) / getImp(root) : set/get input impedance
 	setRangeMode(root, value) / getRangeMode(root) : set/get range mode ("AUTO" or "MAN")
@@ -112,6 +119,23 @@ class Fluke8588A():
 		self._rm.close()
 		self.is_connected = False
 
+	def select_function(self, root):
+		'''
+		Selects the measurement function of root, only if not already active:
+		selecting it again reloads its settings and can drop the commands that
+		follow (seen in ACV: a RANG written right after was ignored)
+		Input:
+			root : SCPI root string e.g. ":VOLT:DC"
+		Output:
+			none
+		'''
+		function = root[1:] #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
+		# FUNC? omits the default :DC and the digitize default :VOLT, e.g.
+		# "VOLT" for VOLT:DC and "DIG" for DIG:VOLT
+		active = self.query(":FUNC?").strip().strip('"')
+		if active not in (function, function.removesuffix(":DC"), function.removesuffix(":VOLT")):
+			self.write(":FUNC \"" + function + "\"")
+
 	def check_errors(self):
 		'''
 		Empties the instrument error queue
@@ -145,7 +169,7 @@ class Fluke8588A():
 		'''
 		root=scpi.ROOT_DCV
 		self.write("*CLS")
-		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
+		self.select_function(root)
 		# RES is interpreted on the active range and kept in digits when the
 		# range changes, so it is written on a manual range before autorange
 		self.setRange(root, range_val)
@@ -166,48 +190,98 @@ class Fluke8588A():
 			"time": self.getTime(root),
 		}
 
-	def init_dci(self, range_mode, range_val, resolution_val, aperture_mode, time_val):
-		self.set_dci(range_mode, range_val, resolution_val, aperture_mode, time_val)
-
 	def set_dci(self, range_mode, range_val, resolution_val, aperture_mode, time_val):
+		'''
+		Set the machine to dci mode, and set up parameters
+		Input:
+			range_mode    : "AUTO" or "MAN"
+			range_val     : manual range; with "AUTO" it is the range the
+			                resolution refers to, then autorange is enabled
+			resolution_val: absolute resolution on range_val
+			aperture_mode : "AUTO", "FAST" or "MAN"
+			time_val      : aperture in seconds, written only with "MAN"
+		Output:
+			dict, values read back from the instrument after all writes
+		'''
 		root=scpi.ROOT_DCI
-		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
-		actual_range_mode = self.setRangeMode(root, range_mode)
-		if range_mode == scpi.RANGE_MODE_MAN_STR:
-			actual_range_val = self.setRange(root, range_val)
-		else:
-			actual_range_val = self.getRange(root)
-		actual_resolution = self.setResolutionValue(root, resolution_val)
-		actual_time = (
+		self.write("*CLS")
+		self.select_function(root)
+		# RES is interpreted on the active range and kept in digits when the
+		# range changes, so it is written on a manual range before autorange
+		self.setRange(root, range_val)
+		self.setResolutionValue(root, resolution_val)
+		self.setRangeMode(root, range_mode)
+		self.setApertureMode(root, aperture_mode)
+		if aperture_mode == scpi.APERTURE_MODE_MAN:
 			self.setTime(root, time_val)
-			if aperture_mode == scpi.APERTURE_MODE_MAN
-			else self.getTime(root)
-		)
-		actual_aperture_mode = self.setApertureMode(root, aperture_mode)
+		self.check_errors()
+		# Read back only after all writes: a later command can change an earlier value
 		return {
-			"range_mode": actual_range_mode,
-			"range_val": actual_range_val,
-			"resolution": actual_resolution,
-			"aperture_mode": actual_aperture_mode,
-			"time": actual_time,
+			"range_mode": self.getRangeMode(root),
+			"range_val": self.getRange(root),
+			"resolution": self.getResolutionValue(root),
+			"aperture_mode": self.getApertureMode(root),
+			"time": self.getTime(root),
 		}
 
-	def init_aci(self, blimit, counter_Coupling, counter_gate, coupling, filter, range_mode, range_val, resolution_val, secondary, secondary_method):
+	def set_aci(self, range_mode, range_val, resolution_val, filter_val, coupling_signal, counter_coupling, counter_blimit, counter_gate, secondary, secondary_method):
 		'''
 		Set the machine to aci mode, and set up parameters
+		Input:
+			range_mode      : "AUTO" or "MAN"
+			range_val       : manual range; with "AUTO" it is the range the
+			                  resolution refers to, then autorange is enabled
+			resolution_val  : absolute resolution on range_val
+			filter_val      : rms filter in hertz
+			coupling_signal : "AC" or "DC", the impedance is always auto
+			counter_coupling: "AC" or "DC", written only with a dc signal path
+			counter_blimit  : 0 or 1, frequency path bandwidth limit
+			counter_gate    : "AUTO" or gate in seconds
+			secondary       : secondary reading, e.g. "OFF", "FREQ", "PTP"
+			secondary_method: peak to peak method, e.g. "MEAS", "SINE"
+		Output:
+			dict, values read back from the instrument after all writes
 		'''
 		root = scpi.ROOT_ACI
-		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
-		self.setBlimit(root, blimit)
-		self.setCounterCoupling(root, counter_Coupling)
-		self.setCounterGate(root, counter_gate)
-		self.setCoupling(root, coupling)
-		self.setFilter(root, filter)
-		self.setRangeMode(root, range_mode)
+		self.write("*CLS")
+		self.select_function(root)
+		# RES is interpreted on the active range and kept in digits when the
+		# range changes, so it is written on a manual range before autorange
 		self.setRange(root, range_val)
-		self.setResolution(root, resolution_val)
+		self.setResolutionValue(root, resolution_val)
+		self.setRangeMode(root, range_mode)
+		# Switching the signal path to ac resets the frequency path to ac
+		self.setCoupling(root, coupling_signal)
+		if coupling_signal == scpi.ACI_COUPLING_DC:
+			self.setCounterCoupling(root, counter_coupling)
+		self.setRmsFilter(root, filter_val)
+		self.setBlimit(root, counter_blimit)
+		# The auto gate follows the rms filter, so it is written after it
+		if counter_gate == scpi.AC_COUNTER_GATE_AUTO:
+			self.setGateMode(root, True)
+		else:
+			self.setGateMode(root, False)
+			self.setCounterGate(root, counter_gate)
 		self.setSecondary(root, secondary)
 		self.setSecondaryMethod(root, secondary_method)
+		self.check_errors()
+		# Read back only after all writes: a later command can change an earlier value
+		return {
+			"range_mode": self.getRangeMode(root),
+			"range_val": self.getRange(root),
+			"resolution": self.getResolutionValue(root),
+			"rms_filter": self.getRmsFilter(root),
+			"signal_path_coupling": self.getCoupling(root),
+			"secondary_reading": self.getSecondary(root),
+			"frequency_path_coupling": self.getCounterCoupling(root),
+			"frequency_path_bandwidth_limit": self.getBlimit(root),
+			"counter_gate": (
+				scpi.AC_COUNTER_GATE_AUTO
+				if self.getGateMode(root)
+				else self.getCounterGate(root)
+			),
+			"peak_to_peak": self.getSecondaryMethod(root),
+		}
 
 	def init_shunt(self, root, shunt_list_index, shunt_sort=None, add_shunt_attributes=None, add_shunt_differences=None):
 		'''
@@ -233,18 +307,159 @@ class Fluke8588A():
 			for frequency, difference in add_shunt_differences:
 				self.addShuntDifference(root, frequency, difference)
 
-	def init_acv(self, root, blimit, counter_coupling, counter_gate, coupling_signal, filter_val, range_mode, range_val, resolution_val, secondary, secondary_method):
-		self.setBlimit(root, blimit)
-		self.setCounterCoupling(root, counter_coupling)
-		self.setCounterGate(root, counter_gate)
-		self.setCouplingSignal(root, coupling_signal)
-		self.setFilter(root, filter_val)
-		self.setRangeMode(root, range_mode)
+	def set_acv(self, range_mode, range_val, resolution_val, bandwidth, filter_val, coupling_signal, counter_coupling, counter_blimit, counter_gate, secondary, secondary_method):
+		'''
+		Set the machine to acv mode, and set up parameters
+		Input:
+			range_mode      : "AUTO" or "MAN"
+			range_val       : manual range; with "AUTO" it is the range the
+			                  resolution refers to, then autorange is enabled
+			resolution_val  : absolute resolution on range_val
+			bandwidth       : "WIDE" or "EHF"
+			filter_val      : rms filter in hertz
+			coupling_signal : "AC1M", "AC10M", "DC1M", "DC10M" or "DCA"
+			counter_coupling: "AC" or "DC", written only with a dc signal path
+			counter_blimit  : 0 or 1, frequency path bandwidth limit
+			counter_gate    : "AUTO" or gate in seconds
+			secondary       : secondary reading, e.g. "OFF", "FREQ", "PTP"
+			secondary_method: peak to peak method, e.g. "MEAS", "SINE"
+		Output:
+			dict, values read back from the instrument after all writes
+		'''
+		root=scpi.ROOT_ACV
+		self.write("*CLS")
+		self.select_function(root)
+		# Written first: the operating mode can change the other settings
+		self.setBwidth(root, bandwidth)
+		# RES is interpreted on the active range and kept in digits when the
+		# range changes, so it is written on a manual range before autorange
 		self.setRange(root, range_val)
-		self.setResolution(root, resolution_val)
+		self.setResolutionValue(root, resolution_val)
+		self.setRangeMode(root, range_mode)
+		# An ac signal path forces the frequency path to ac
+		self.setCouplingSignal(root, coupling_signal)
+		if coupling_signal in scpi.AC_DC_SIGNAL_COUPLINGS:
+			self.setCounterCoupling(root, counter_coupling)
+		self.setRmsFilter(root, filter_val)
+		self.setBlimit(root, counter_blimit)
+		# The auto gate follows the rms filter, so it is written after it
+		if counter_gate == scpi.AC_COUNTER_GATE_AUTO:
+			self.setGateMode(root, True)
+		else:
+			self.setGateMode(root, False)
+			self.setCounterGate(root, counter_gate)
 		self.setSecondary(root, secondary)
 		self.setSecondaryMethod(root, secondary_method)
+		self.check_errors()
+		# Read back only after all writes: a later command can change an earlier value
+		return {
+			"range_mode": self.getRangeMode(root),
+			"range_val": self.getRange(root),
+			"resolution": self.getResolutionValue(root),
+			"rms_filter": self.getRmsFilter(root),
+			"coupling_impedance": self.getCouplingSignal(root),
+			"secondary_reading": self.getSecondary(root),
+			"frequency_path_coupling": self.getCounterCoupling(root),
+			"frequency_path_bandwidth_limit": self.getBlimit(root),
+			"counter_gate": (
+				scpi.AC_COUNTER_GATE_AUTO
+				if self.getGateMode(root)
+				else self.getCounterGate(root)
+			),
+			"bandwidth": self.getBwidth(root),
+			"peak_to_peak": self.getSecondaryMethod(root),
+		}
 	
+	def set_ohms(self, measurement, range_mode, range_val, resolution_val, filter_val, low_current, aperture_mode, time_val):
+		'''
+		Set the machine to 2-wire (RES) or 4-wire (FRES) ohms, and set up parameters
+		Input:
+			measurement   : a key of scpi.OHM_MEASUREMENTS, e.g. scpi.OHM_4W_TRUE
+			range_mode    : "AUTO" or "MAN"
+			range_val     : manual range, ignored with "AUTO"
+			resolution_val: absolute resolution on scpi.OHM_RESOLUTION_RANGE
+			filter_val    : bool, filter on/off (shared by RES and FRES)
+			low_current   : bool, low current on/off (kept per function and mode)
+			aperture_mode : "AUTO", "FAST" or "MAN"
+			time_val      : aperture in seconds, written only with "MAN"
+		Output:
+			dict, values read back from the instrument after all writes
+		'''
+		root, mode = scpi.OHM_MEASUREMENTS[measurement]
+		self.write("*CLS")
+		self.select_function(root)
+		# Written first: TRUE limits the range, and LOWI is kept per mode
+		self.setWireMode(root, mode)
+		# RES is kept in digits when the range changes, so it is written on a
+		# range that accepts every digit count, then the range is set
+		self.setRange(root, scpi.OHM_RESOLUTION_RANGE)
+		self.setResolutionValue(root, resolution_val)
+		if range_mode == scpi.RANGE_MODE_MAN_STR:
+			self.setRange(root, range_val)
+		self.setRangeMode(root, range_mode)
+		self.setFilter(root, filter_val)
+		self.setLowCurrentMode(root, low_current)
+		self.setApertureMode(root, aperture_mode)
+		if aperture_mode == scpi.APERTURE_MODE_MAN:
+			self.setTime(root, time_val)
+		self.check_errors()
+		wire_mode = self.getWireMode(root)
+		# Read back only after all writes: a later command can change an earlier value
+		return {
+			"range_mode": self.getRangeMode(root),
+			"range_val": self.getRange(root),
+			"resolution": self.getResolutionValue(root),
+			"mode": next(
+				key for key, value in scpi.OHM_MEASUREMENTS.items() if value == (root, wire_mode)
+			),
+			"filter": self.getFilter(root),
+			"low_current": self.getLowCurrentMode(root),
+			"aperture_mode": self.getApertureMode(root),
+			"time": self.getTime(root),
+		}
+
+	def set_digitize(self, measurement, range_val, coupling, filter_val, aperture):
+		'''
+		Set the machine to digitize voltage or current, and set up parameters
+		Input:
+			measurement: a key of scpi.DIGI_MEASUREMENTS, e.g. scpi.DIGI_VOLTAGE
+			range_val  : range, digitize has no autorange
+			coupling   : voltage "AC1M", "AC10M", "DC1M", "DC10M" or "DCA";
+			             current "AC" or "DC"
+			filter_val : low pass filter "OFF", "100K" or "3MHZ"
+			aperture   : aperture in seconds, 0 to 3 ms
+		Output:
+			dict, values read back from the instrument after all writes
+		'''
+		root = scpi.DIGI_MEASUREMENTS[measurement]
+		self.write("*CLS")
+		self.select_function(root)
+		self.setRange(root, range_val)
+		if root == scpi.ROOT_DIGIVOLTAGE:
+			self.setCouplingSignal(root, coupling)
+		else:
+			self.setCoupling(root, coupling)
+		# Filter and aperture are shared by voltage and current
+		self.setDigitizeFilter(scpi.ROOT_DIGITIZE, filter_val)
+		self.setDigitizeAperture(scpi.ROOT_DIGITIZE, aperture)
+		self.check_errors()
+		# Read back only after all writes: a later command can change an earlier value
+		return {
+			"signal": measurement,
+			"range_val": self.getRange(root),
+			"coupling_impedance": (
+				self.getCouplingSignal(root)
+				if root == scpi.ROOT_DIGIVOLTAGE
+				else self.getCoupling(root)
+			),
+			"filter": self.getDigitizeFilter(scpi.ROOT_DIGITIZE),
+			# The instrument rounds the aperture up to its step
+			"aperture": self.getTime(scpi.ROOT_DIGITIZE),
+		}
+
+	'''
+	Legacy OHMS initializers: replaced by set_ohms, they use the digit
+	resolution (setResolution) and do not read back.
 	def init_resistance(self, aperture_mode, time_val, mode_val, low_mode_val, range_mode, range_val, resolution_val, filter_val):
 		root=scpi.ROOT_RESISTANCE
 		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
@@ -269,6 +484,7 @@ class Fluke8588A():
 		self.setFilter(root, filter_val)
 		self.setTime(root, time_val)
 		self.setApertureMode(root, aperture_mode)
+	'''
 
 	'''
 	Legacy trigger initializer. Use the controller's trigger settings path instead.
@@ -421,13 +637,17 @@ class Fluke8588A():
 		self.write(root+":RANG "+str(value))
 		return self.getRange(root)
 	
+	"""
+	Legacy digit resolution (10**-digits): replaced by setResolutionValue /
+	getResolutionValue, the digits are converted by the Translator on the
+	range. Only the commented init_resistance/init_fresistance used it.
 	def getResolution(self, root):
 		'''
 		Get resolution value for given root
 		Input:
 			root
 		Output:
-			int, digit count (4-8 for DC, 4-7 for AC)
+			int, digit count (see scpi.VALID_RESOLUTION_DIGITS[root])
 		'''
 		raw_resolution = float(self.query(root+":RES?"))
 		return self.__anti_convert_resolution(raw_resolution)
@@ -436,8 +656,10 @@ class Fluke8588A():
 		Sets resolution in digits for given root.
 		Converts digit count to the resolution value the instrument expects.
 		Input:
-			root  : SCPI root string e.g. ":VOLT:DC"
-			value : int or str, number of digits (4–8 for DC, 4–7 for AC)
+			root  : SCPI root string e.g. ":VOLT:DC", must be a key of
+			        scpi.VALID_RESOLUTION_DIGITS
+			value : int or str, number of digits allowed for root
+			        (scpi.VALID_RESOLUTION_DIGITS[root])
 		Output:
 			float, set value in digits
 
@@ -446,22 +668,18 @@ class Fluke8588A():
 			setResolution(":VOLT:DC", 6) --> measures 1.234778 V (returns 6)
 		'''
 		digit_value = int(value)
-		is_ac = "AC" in root.upper()
-		
-		if is_ac:
-			if digit_value not in scpi.VALID_RESOLUTIONS_AC_DIGITS:
-				raise ValueError(
-					f"AC resolution must be one of {scpi.VALID_RESOLUTIONS_AC_DIGITS}, got {digit_value}"
-				)
-		else:
-			if digit_value not in scpi.VALID_RESOLUTIONS_DC_DIGITS:
-				raise ValueError(
-					f"DC resolution must be one of {scpi.VALID_RESOLUTIONS_DC_DIGITS}, got {digit_value}"
-				)
-		
+		valid_digits = scpi.VALID_RESOLUTION_DIGITS.get(root)
+		if valid_digits is None:
+			raise ValueError(f"Resolution in digits is not supported for root {root!r}")
+		if digit_value not in valid_digits:
+			raise ValueError(
+				f"{root} resolution must be one of {valid_digits}, got {digit_value}"
+			)
+
 		converted_resolution = self.__convert_resolution(digit_value)
 		self.write(root + ":RES " + str(converted_resolution))
 		return self.getResolution(root)
+	"""
 
 	def setResolutionValue(self, root, value):
 		"""Set an absolute resolution value as specified by the SCPI manual."""
@@ -474,7 +692,9 @@ class Fluke8588A():
 	def getResolutionValue(self, root):
 		"""Get the absolute resolution value for given root."""
 		return float(self.query(root + ":RES?").strip())
-	
+
+	'''
+	Legacy, helpers of the commented setResolution/getResolution.
 	def __convert_resolution(self, value):
 		return 10**(-value)
 
@@ -492,51 +712,94 @@ class Fluke8588A():
 		if math.isclose(resolution, 10 ** -digits, rel_tol=1e-9, abs_tol=1e-15):
 			return digits
 		raise ValueError(f"Unexpected resolution from instrument: {value}")
+	'''
 
 	#ACI
 	def getBlimit(self, root):
-		return self.query(f"{root}:COUNter:BLIMit[:STATe]?")
+		return int(float(self.query(f"{root}:COUNter:BLIMit?")))
 
 	def setBlimit(self, root, value:bool):
 		self.write(f"{root}:COUNter:BLIMit {int(value)}")
 		return self.getBlimit(root)
 
 	def getCounterCoupling(self, root):
-		return self.query(f"{root}:COUNter:COUPling?")
+		return self.query(f"{root}:COUNter:COUPling?").strip()
 
 	def setCounterCoupling(self, root, value):
 		self.write(f"{root}:COUNter:COUPling {value}")
 		return self.getCounterCoupling(root)
 
 	def getGateMode(self, root):
-		return self.query(f"{root}:COUNter:GATE:AUTO?")
+		return bool(int(float(self.query(f"{root}:COUNter:GATE:AUTO?"))))
 
 	def setGateMode(self, root, value:bool):
-		self.write(f"{root}:COUNter:GATE:AUTO {value}")
+		self.write(f"{root}:COUNter:GATE:AUTO {int(value)}")
 		return self.getGateMode(root)
 
 	def getFilter(self, root):
 		return bool(int(self.query(f"{root}:FILTer?").strip()))
 
-	def setFilter(self, root, value):
-		self.write(f"{root}:FILTer {value}")
+	def setFilter(self, root, value:bool):
+		self.write(f"{root}:FILTer {int(value)}")
 		return self.getFilter(root)
 
+	# DIGITIZE, root scpi.ROOT_DIGITIZE
+	def getDigitizeFilter(self, root):
+		return self.query(f"{root}:FILTer?").strip()
+
+	def setDigitizeFilter(self, root, value):
+		self.write(f"{root}:FILTer {value}")
+		return self.getDigitizeFilter(root)
+
+	def setDigitizeAperture(self, root, value):
+		# Not setTime: 0 is a valid digitize aperture
+		aperture = float(value)
+		if not scpi.DIGI_APERTURE_MIN <= aperture <= scpi.DIGI_APERTURE_MAX:
+			raise ValueError(
+				f"Digitize aperture must be between {scpi.DIGI_APERTURE_MIN} "
+				f"and {scpi.DIGI_APERTURE_MAX} s, got {value}"
+			)
+		self.write(f"{root}:APERture {aperture}")
+		return self.getTime(root)
+
+	def getRmsFilter(self, root):
+		'''
+		Get the AC rms filter for given root
+		Input:
+			root
+		Output:
+			float, filter in hertz
+		'''
+		return float(self.query(f"{root}:FILTer?"))
+
+	def setRmsFilter(self, root, value):
+		'''
+		Sets the AC rms filter for given root; unlike setFilter it is a
+		frequency, the closest discrete setting is selected
+		Input:
+			root  : SCPI root string e.g. ":VOLT:AC"
+			value : filter in hertz (0.1, 1, 10, 40, 100, 1000)
+		Output:
+			float, set value in hertz
+		'''
+		self.write(f"{root}:FILTer {float(value)}")
+		return self.getRmsFilter(root)
+
 	def getCounterGate(self, root):
-		return self.query(f"{root}:COUNter:GATE?")
+		return float(self.query(f"{root}:COUNter:GATE?"))
 
 	def setCounterGate(self, root, value):
 		self.write(f"{root}:COUNter:GATE {value}")
 		return self.getCounterGate(root)
 
 	def getSecondary(self, root):
-		return self.query(f"{root}:SECondary?")
+		return self.query(f"{root}:SECondary?").strip()
 	def setSecondary(self, root, value:str):
 		self.write(f"{root}:SECondary {value}")
 		return self.getSecondary(root)
-	
+
 	def getSecondaryMethod(self, root):
-		return self.query(f"{root}:SECondary:METHod?")
+		return self.query(f"{root}:SECondary:METHod?").strip()
 
 	def setSecondaryMethod(self, root, value:str):
 		self.write(f"{root}:SECondary:METHod {value}")
@@ -585,14 +848,14 @@ class Fluke8588A():
 
 	#ACV
 	def getBwidth(self, root):
-		return self.query(f"{root}:BWIDth?")
+		return self.query(f"{root}:BWIDth?").strip()
 
 	def setBwidth(self, root, value):
 		self.write(f"{root}:BWIDth {value}")
 		return self.getBwidth(root)
 
 	def getCouplingSignal(self, root):
-		return self.query(f"{root}:COUPling:SIGNal?")
+		return self.query(f"{root}:COUPling:SIGNal?").strip()
 
 	def setCouplingSignal(self, root, value):
 		self.write(f"{root}:COUPling:SIGNal {value}")
@@ -621,10 +884,12 @@ class Fluke8588A():
 		self.write(f"{root}:COUNt {value}")
 		return self.getCount(root)
 
+	# Also the ACI signal path coupling (:CURR:AC:COUP)
 	def getCoupling(self, root):
-		return self.query(f"{root}:COUP?")
+		return self.query(f"{root}:COUP?").strip()
 	def setCoupling(self, root, coupling:str):
-		return self.write(f"{root}:COUP {coupling}")
+		self.write(f"{root}:COUP {coupling}")
+		return self.getCoupling(root)
 	
 	def getDelay(self, root):
 		return self.query(f"{root}:DELay?")
@@ -698,10 +963,16 @@ class Fluke8588A():
 		self.write(f"{root}:HOLDoff {value}")
 		return self.getHoldoff(root)
 
+	'''
+	Unused duplicate of resetTrigger (same <root>:RESet command).
 	def setReset(self, root):
 		return self.write(f"{root}:RES")
-	
+	'''
 
+
+	"""
+	Unused and to be fixed before use: zero() is not an f-string, so it sends
+	"{value}" literally, and zeroClear() sends ZERO instead of ZERO:CLEar.
 	#ZERO
 	def zero(self, value):
 		'''
@@ -718,26 +989,29 @@ class Fluke8588A():
 		Clears zero, applies to active range or function. Returns ‘0’ for success, and ‘1’ for failure;
 		'''
 		return self.query(f"SENSe:ZERO {value}")
+	"""
 
-	# RESISTANCE and FRESISTANCE (only chane is mode, which has True as an extra option)
+	# RESISTANCE and FRESISTANCE (only change is mode, FRES has TRUE as an extra option)
 	def getWireMode(self, root):
 		return self.query(f"{root}:MODE?").strip()
 	def setWireMode(self, root, value):
 		'''
-		input: (root, NORMal || TRUE);
-		Output:  NORMal || TRUE ;
-		Sets the 2-wire Ohms mode, returns the mode that has been set in machine.
+		input: (root, NORM || TRUE), TRUE only with :FRES;
+		Output:  NORM || TRUE ;
+		Sets the Ohms mode, returns the mode that has been set in machine.
 		'''
 		self.write(f"{root}:MODE {value}")
 		return self.getWireMode(root)
-	
+
 	def getLowCurrentMode(self, root):
 		return bool(int(self.query(f"{root}:LOWI?").strip()))
-	def setLowCurrentMode(self, root, value):
+	def setLowCurrentMode(self, root, value:bool):
 		'''
-		input: (root, 1 || 0);
-		Output:  1 || 0; TO BE CHECKED
-		Sets the Low current mode ON or OFF
+		input: (root, bool);
+		Output:  bool, set value;
+		Sets the Low current mode ON or OFF, the instrument keeps it per
+		function and per mode (NORM/TRUE)
 		'''
-		self.write(f"{root}:LOWI {value}")
+		self.write(f"{root}:LOWI {int(value)}")
+		return self.getLowCurrentMode(root)
 	

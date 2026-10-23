@@ -499,7 +499,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QDoubleSpinBox" name="tlevel_spinbox"/>
+            <widget class="QSpinBox" name="tlevel_spinbox"/>
            </item>
           </layout>
          </item>

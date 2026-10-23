@@ -33,7 +33,7 @@
              <item>
               <widget class="QLabel" name="label_4">
                <property name="text">
-                <string>N°</string>
+                <string>N</string>
                </property>
               </widget>
              </item>
@@ -88,7 +88,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QGraphicsView" name="graph1_graphicview"/>
+         <widget class="PlotWidget" name="graph1_graphicview"/>
         </item>
        </layout>
       </item>
@@ -169,7 +169,7 @@
          </widget>
         </item>
         <item>
-         <widget class="QGraphicsView" name="graph2_graphicview"/>
+         <widget class="PlotWidget" name="graph2_graphicview"/>
         </item>
        </layout>
       </item>
@@ -232,6 +232,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>PlotWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>pyqtgraph</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

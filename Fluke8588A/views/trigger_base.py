@@ -73,7 +73,7 @@ class TriggerBaseWindow(QWidget):
         elif source == gui_values.TRIGGER_SOURCE_INTERNAL:
             self.tdccoup_radiobutton.setChecked(True)
             self.tpos_radiobutton.setChecked(True)
-            self.tlevel_spinbox.setValue(0.0)
+            self.tlevel_spinbox.setValue(0)
             self.tfiltoff_radiobutton.setChecked(True)
 
     def set_settings(self, settings: TriggerBaseSettings) -> None:
@@ -103,7 +103,7 @@ class TriggerBaseWindow(QWidget):
         elif source == gui_values.TRIGGER_SOURCE_INTERNAL and settings.sig_slope in ("-", gui_values.TRIGGER_SLOPE_NEG):
             self.tneg_radiobutton.setChecked(True)
         self.tlevel_spinbox.setValue(
-            settings.sig_level if source == gui_values.TRIGGER_SOURCE_INTERNAL and settings.sig_level is not None else 0.0
+            int(settings.sig_level) if source == gui_values.TRIGGER_SOURCE_INTERNAL and settings.sig_level is not None else 0
         )
         self.tfilton_radiobutton.setChecked(
             source == gui_values.TRIGGER_SOURCE_INTERNAL and settings.sig_filter is True
@@ -145,7 +145,7 @@ class TriggerBaseWindow(QWidget):
             ),
             sig_coupling=(sig_coupling or gui_values.TRIGGER_COUPLING_DC) if signal_configured else gui_values.TRIGGER_COUPLING_DC,
             sig_slope=(sig_slope or gui_values.TRIGGER_SLOPE_POS) if signal_configured else gui_values.TRIGGER_SLOPE_POS,
-            sig_level=self.tlevel_spinbox.value() if signal_configured else 0.0,
+            sig_level=self.tlevel_spinbox.value() if signal_configured else 0,
             sig_filter=(
                 self.tfilton_radiobutton.isChecked()
                 if signal_configured and (

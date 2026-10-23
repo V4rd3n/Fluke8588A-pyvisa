@@ -1,13 +1,16 @@
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import Optional  # TYPE_CHECKING unused
 
 import pyvisa
 
 from Fluke8588A.instrument.Fluke8588A import Fluke8588A
 from Fluke8588A.instrument import scpi
 from Fluke8588A.data.settings import (
+    AciSettings,
+    AcvSettings,
     DcvSettings,
     DciSettings,
+    DigitizeSettings,
     OhmsSettings,
     TriggerBaseSettings,
 )
@@ -201,6 +204,76 @@ class InstrumentController:
             time_val=settings.time,
         )
         return DciSettings(**actual)
+
+    def set_acv(self, settings: AcvSettings) -> AcvSettings:
+        """Configure AC voltage and return the values accepted by the instrument."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set ACV: not connected to instrument")
+
+        actual = self._instrument.set_acv(
+            range_mode=settings.range_mode,
+            range_val=settings.range_val,
+            resolution_val=settings.resolution,
+            bandwidth=settings.bandwidth,
+            filter_val=settings.rms_filter,
+            coupling_signal=settings.coupling_impedance,
+            counter_coupling=settings.frequency_path_coupling,
+            counter_blimit=settings.frequency_path_bandwidth_limit,
+            counter_gate=settings.counter_gate,
+            secondary=settings.secondary_reading,
+            secondary_method=settings.peak_to_peak,
+        )
+        return AcvSettings(**actual)
+
+    def set_aci(self, settings: AciSettings) -> AciSettings:
+        """Configure AC current and return the values accepted by the instrument."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set ACI: not connected to instrument")
+
+        actual = self._instrument.set_aci(
+            range_mode=settings.range_mode,
+            range_val=settings.range_val,
+            resolution_val=settings.resolution,
+            filter_val=settings.rms_filter,
+            coupling_signal=settings.signal_path_coupling,
+            counter_coupling=settings.frequency_path_coupling,
+            counter_blimit=settings.frequency_path_bandwidth_limit,
+            counter_gate=settings.counter_gate,
+            secondary=settings.secondary_reading,
+            secondary_method=settings.peak_to_peak,
+        )
+        return AciSettings(**actual)
+
+    def set_ohms(self, settings: OhmsSettings) -> OhmsSettings:
+        """Configure 2-wire/4-wire resistance and return the values accepted by the instrument."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set OHMS: not connected to instrument")
+
+        actual = self._instrument.set_ohms(
+            measurement=settings.mode,
+            range_mode=settings.range_mode,
+            range_val=settings.range_val,
+            resolution_val=settings.resolution,
+            filter_val=settings.filter,
+            low_current=settings.low_current,
+            aperture_mode=settings.aperture_mode,
+            time_val=settings.time,
+        )
+        return OhmsSettings(**actual)
+
+    def set_digitize(self, settings: DigitizeSettings) -> DigitizeSettings:
+        """Configure digitize voltage/current and return the values accepted by the instrument."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set DIGITIZE: not connected to instrument")
+
+        actual = self._instrument.set_digitize(
+            measurement=settings.signal,
+            range_val=settings.range_val,
+            coupling=settings.coupling_impedance,
+            filter_val=settings.filter,
+            aperture=settings.aperture,
+        )
+        return DigitizeSettings(**actual)
 
     def write(self, command: str) -> None:
         """

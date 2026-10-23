@@ -12,6 +12,7 @@ from Fluke8588A.data.settings import (
 	AcvSettings,
 	DciSettings,
 	DcvSettings,
+	DigitizeSettings,
 	OhmsSettings,
 	TriggerBaseSettings,
 )
@@ -40,10 +41,11 @@ def dci_settings() -> DciSettings:
 
 def acv_settings() -> AcvSettings:
 	return AcvSettings(
+		range_mode="MAN",
 		range_val="1 kV",
-		resolution=7,
+		resolution=6,
 		rms_filter="40Hz",
-		coupling_impedance="AC 1MΩ",
+		coupling_impedance="AC, 1MΩ",
 		secondary_reading="Frequency",
 		frequency_path_coupling="AC",
 		frequency_path_bandwidth_limit="OFF",
@@ -55,6 +57,7 @@ def acv_settings() -> AcvSettings:
 
 def aci_settings() -> AciSettings:
 	return AciSettings(
+		range_mode="MAN",
 		range_val="30 A",
 		resolution=6,
 		rms_filter="40Hz",
@@ -69,14 +72,24 @@ def aci_settings() -> AciSettings:
 
 def ohms_settings() -> OhmsSettings:
 	return OhmsSettings(
-		four=False,
-		range_val="1 kΩ",
-		resolution=4,
+		range_mode="MAN",
+		range_val="10 kΩ",
+		resolution=7,
 		mode="2W NORMAL",
 		filter=False,
-		low_i=False,
+		low_current=False,
 		aperture_mode="AUTO",
-		time=0.1,
+		time=1.0,
+	)
+
+
+def digitize_settings() -> DigitizeSettings:
+	return DigitizeSettings(
+		signal="Tension",
+		range_val="1 kV",
+		coupling_impedance="DC, Auto",
+		filter="3 MHz",
+		aperture=0.0,
 	)
 
 

@@ -20,6 +20,7 @@ class DciSettings:
 
 @dataclass
 class AcvSettings:
+    range_mode: str
     range_val: str
     resolution: int
     rms_filter: str
@@ -33,6 +34,7 @@ class AcvSettings:
 
 @dataclass
 class AciSettings:
+    range_mode: str
     range_val: str
     resolution: int
     rms_filter: str
@@ -45,14 +47,22 @@ class AciSettings:
 
 @dataclass
 class OhmsSettings:
-    four: bool
+    range_mode: str
     range_val:  str
     resolution: int
-    mode:       str
+    mode:       str  # wires and ohms mode together, e.g. "2W NORMAL", "4W Tru"
     filter:     bool
-    low_i:      bool
+    low_current: bool
     aperture_mode: str
     time:       float
+
+@dataclass
+class DigitizeSettings:
+    signal:     str  # voltage or current, the model selects :DIG:VOLT or :DIG:CURR from it
+    range_val:  str
+    coupling_impedance: str  # with current only the coupling, the impedance is always auto
+    filter:     str
+    aperture:   float  # seconds, shared by voltage and current
 
 #TO DO, implement a TriggerSettings
 @dataclass
@@ -68,5 +78,5 @@ class TriggerBaseSettings:
     ext_edge:   Optional[str]
     sig_coupling: Optional[str]
     sig_slope:  Optional[str]
-    sig_level:  Optional[float]
+    sig_level:  Optional[int]
     sig_filter: Optional[bool]

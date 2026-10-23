@@ -25,10 +25,14 @@ ROOT_DCV = ":VOLT:DC"
 ROOT_DCI = ":CURR:DC"
 ROOT_ACV = ":VOLT:AC"
 ROOT_ACI = ":CURR:AC"
-ROOT_RESISTANCE = ":RESistance"
-ROOT_FRESISTANCE = ":FRESistance"
+# Short forms: select_function compares the root with FUNC?, which answers "RES"/"FRES"
+ROOT_RESISTANCE = ":RES"
+ROOT_FRESISTANCE = ":FRES"
 ROOT_DIGIVOLTAGE = ":DIG:VOLT"
 ROOT_DIGICURRENT = ":DIG:CURR"
+# Aperture and filter are shared by digitize voltage and current: they exist
+# only as :DIG:APER and :DIG:FILT (:DIG:VOLT:APER is a syntax error)
+ROOT_DIGITIZE = ":DIG"
 
 # Trigger roots
 ROOT_INITIATE = ":INIT"
@@ -48,19 +52,107 @@ APERTURE_MODE_FAST = "FAST"
 APERTURE_MODE_MAN = "MAN"
 VALID_APERTURE_MODES = [APERTURE_MODE_AUTO, APERTURE_MODE_FAST, APERTURE_MODE_MAN]
 
-# Aperture used by AUTO FAST at 4, 5, 6, 7, 8 digits
-AUTO_FAST_VALUES = [1e-2, 1e-1, 1, 1e1, 1e2]
+# Unused: aperture used by AUTO FAST at 4, 5, 6, 7, 8 digits
+# AUTO_FAST_VALUES = [1e-2, 1e-1, 1, 1e1, 1e2]
 
-# Resolution in digits accepted by Fluke8588A.setResolution (converted to 10**-digits)
-VALID_RESOLUTIONS_DC_DIGITS = [4, 5, 6, 7, 8]
-VALID_RESOLUTIONS_AC_DIGITS = [4, 5, 6, 7]
+# Unused: resolution in digits accepted by the commented
+# Fluke8588A.setResolution per function root (converted to 10**-digits)
+# VALID_RESOLUTION_DIGITS = {
+# 	ROOT_DCV: [4, 5, 6, 7, 8],
+# 	ROOT_DCI: [4, 5, 6, 7],
+# 	ROOT_ACV: [4, 5, 6, 7],
+# 	ROOT_ACI: [4, 5, 6, 7],
+# 	ROOT_RESISTANCE: [4, 5, 6, 7, 8],
+# 	ROOT_FRESISTANCE: [4, 5, 6, 7, 8],
+# }
 
 # DCV input impedance (<root>:IMP)
 VALID_DCV_IMPEDANCES = ["AUTO", "10M", "1M"]
 
-# Ohms wire modes (<root>:MODE)
+# ACV operating mode (<root>:BWIDth)
+ACV_BANDWIDTH_WIDE = "WIDE"
+ACV_BANDWIDTH_EHF = "EHF"
+
+# AC signal path coupling and impedance (<root>:COUPling:SIGNal); DCAuto is
+# returned in its short form
+AC_COUPLING_AC1M = "AC1M"
+AC_COUPLING_AC10M = "AC10M"
+AC_COUPLING_DC1M = "DC1M"
+AC_COUPLING_DC10M = "DC10M"
+AC_COUPLING_DCAUTO = "DCA"
+AC_DC_SIGNAL_COUPLINGS = [AC_COUPLING_DC1M, AC_COUPLING_DC10M, AC_COUPLING_DCAUTO]
+
+# ACI signal path coupling (<root>:COUPling), the impedance is always auto;
+# ACI has no <root>:COUPling:SIGNal
+ACI_COUPLING_AC = "AC"
+ACI_COUPLING_DC = "DC"
+
+# AC frequency path coupling (<root>:COUNter:COUPling)
+AC_COUNTER_COUPLING_AC = "AC"
+AC_COUNTER_COUPLING_DC = "DC"
+
+# AC counter gate (<root>:COUNter:GATE): with AUTO only <root>:COUNter:GATE:AUTO
+# is written, otherwise the gate in seconds
+AC_COUNTER_GATE_AUTO = "AUTO"
+
+# AC secondary reading (<root>:SECondary) and peak to peak method (<root>:SECondary:METHod)
+AC_SECONDARY_OFF = "OFF"
+AC_SECONDARY_FREQUENCY = "FREQ"
+AC_SECONDARY_PERIOD = "PER"
+AC_SECONDARY_PEAK_TO_PEAK = "PTP"
+AC_SECONDARY_CREST_FACTOR = "CFAC"
+AC_SECONDARY_POSITIVE_PEAK = "PPE"
+AC_SECONDARY_NEGATIVE_PEAK = "NPE"
+AC_PTP_MEASURED = "MEAS"
+AC_PTP_SINE = "SINE"
+AC_PTP_SQUARE = "SQU"
+AC_PTP_TRIANGLE = "TRI"
+AC_PTP_TRUNCATED_SINE = "TSIN"
+
+# Ohms modes (<root>:MODE); TRUE exists only in 4-wire (:FRES), :RES:MODE TRUE
+# is a syntax error
 OHM_MODE_NORMAL = "NORM"
 OHM_MODE_TRUE = "TRUE"
+
+# Ohms measurement, wires and <root>:MODE together: the model exposes one of
+# these tokens and maps it to the function root and the mode it writes
+OHM_2W_NORMAL = "2W_NORM"
+OHM_4W_NORMAL = "4W_NORM"
+OHM_4W_TRUE = "4W_TRUE"
+OHM_MEASUREMENTS = {
+	OHM_2W_NORMAL: (ROOT_RESISTANCE, OHM_MODE_NORMAL),
+	OHM_4W_NORMAL: (ROOT_FRESISTANCE, OHM_MODE_NORMAL),
+	OHM_4W_TRUE: (ROOT_FRESISTANCE, OHM_MODE_TRUE),
+}
+
+# Range (ohms) on which the ohms resolution is written. RES is kept in digits
+# when the range changes, while a write is refused above 1E+3 ohms (e.g. 4
+# digits on 100 MOhm): written here, every digit count reaches every range.
+# 10 kOhm is valid in every mode (TRUE stops at 10 kOhm) with 4 to 8 digits
+OHM_RESOLUTION_RANGE = 1e4
+
+# Digitize signal: the model exposes one of these tokens and maps it to the
+# function root. Digitize has no autorange and no resolution
+DIGI_VOLTAGE = "VOLT"
+DIGI_CURRENT = "CURR"
+DIGI_MEASUREMENTS = {
+	DIGI_VOLTAGE: ROOT_DIGIVOLTAGE,
+	DIGI_CURRENT: ROOT_DIGICURRENT,
+}
+
+# Digitize coupling: voltage uses <root>:COUPling:SIGNal with the AC_COUPLING_*
+# values, current uses <root>:COUPling with the ACI_COUPLING_* values (the
+# impedance is always auto, :DIG:CURR:COUP:SIGN is a syntax error)
+
+# Digitize low pass filter (:DIG:FILTer); 100 kHz is returned as 100K, which
+# is also accepted on write
+DIGI_FILTER_OFF = "OFF"
+DIGI_FILTER_100K = "100K"
+DIGI_FILTER_3M = "3MHZ"
+
+# Digitize aperture (:DIG:APERture) in seconds, out of range is -222
+DIGI_APERTURE_MIN = 0.0
+DIGI_APERTURE_MAX = 3e-3
 
 # Trigger sources (<trigger root>:SOURce)
 TRIGGER_SOURCE_BUS = "BUS"
@@ -79,5 +171,6 @@ TRIGGER_EXT_POS_TTL = "POSitive,TTL"
 TRIGGER_EXT_NEG_BIPOLAR = "NEGative,BIPolar"
 TRIGGER_EXT_POS_BIPOLAR = "POSitive,BIPolar"
 
-# Internal trigger signal coupling (<trigger root>:COUP)
-TRIGGER_COUPLINGS = ["DC", "AC"]
+# Unused: internal trigger signal coupling (<trigger root>:COUP), the GUI
+# values DC/AC are sent as they are
+# TRIGGER_COUPLINGS = ["DC", "AC"]
