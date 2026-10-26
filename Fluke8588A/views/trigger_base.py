@@ -39,6 +39,10 @@ class TriggerBaseWindow(QWidget):
         self.ext_combobox.addItems(gui_values.TRIGGER_EXTERNAL_EDGES)
         self.tcount_spinbox.setRange(*gui_values.TRIGGER_COUNT_RANGE)
         self.tecount_spinbox.setRange(*gui_values.TRIGGER_ECOUNT_RANGE)
+        # Decimals before the ranges, setRange rounds to the current decimals
+        self.del_doublespinbox.setDecimals(gui_values.TRIGGER_DELAY_DECIMALS)
+        self.hold_doublespinbox.setDecimals(gui_values.TRIGGER_HOLDOFF_DECIMALS)
+        self.tim_doublespinbox.setDecimals(gui_values.TRIGGER_TIMER_DECIMALS)
         self.del_doublespinbox.setRange(*gui_values.TRIGGER_DELAY_RANGE)
         self.hold_doublespinbox.setRange(*gui_values.TRIGGER_HOLDOFF_RANGE)
         self.tim_doublespinbox.setRange(*gui_values.TRIGGER_TIMER_RANGE)

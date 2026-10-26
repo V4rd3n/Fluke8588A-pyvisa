@@ -206,6 +206,12 @@ TRIGGER_EXTERNAL_EDGE = {
 	"Bipolar Positive": scpi.TRIGGER_EXT_POS_BIPOLAR,
 }
 
+TRIGGER_INITIATE_MODE = {
+	gui.TRIGGER_INITIATE_CONTINUOUS_ON: scpi.INITIATE_CONTINUOUS_ON,
+	gui.TRIGGER_INITIATE_CONTINUOUS_OFF: scpi.INITIATE_CONTINUOUS_OFF,
+	gui.TRIGGER_INITIATE_EPOCH: scpi.INITIATE_EPOCH,
+}
+
 # Absolute resolution, in SI units (V, A), at the maximum displayed digits
 # (gui.*_RESOLUTION_DIGITS[1]) per range label. Fewer digits mean a coarser
 # resolution, one decade per digit (see Translator.translate_resolution).
@@ -261,6 +267,7 @@ GUI_TO_SCPI = {
 	"digi_filter": DIGI_FILTER,
 	"trigger_source": TRIGGER_SOURCE,
 	"trigger_external_edge": TRIGGER_EXTERNAL_EDGE,
+	"trigger_initiate_mode": TRIGGER_INITIATE_MODE,
 }
 
 
@@ -281,6 +288,7 @@ if OHM_RANGE[OHM_AUTO_REFERENCE_RANGE] != scpi.OHM_RESOLUTION_RANGE:
 	raise RuntimeError("OHM_AUTO_REFERENCE_RANGE must be scpi.OHM_RESOLUTION_RANGE")
 _check_covers(TRIGGER_SOURCE, gui.TRIGGER_SOURCES, "TRIGGER_SOURCE")
 _check_covers(TRIGGER_EXTERNAL_EDGE, gui.TRIGGER_EXTERNAL_EDGES, "TRIGGER_EXTERNAL_EDGE")
+_check_covers(TRIGGER_INITIATE_MODE, gui.TRIGGER_INITIATE_MODES, "TRIGGER_INITIATE_MODE")
 _check_covers(DCV_MAX_RESOLUTION, gui.DCV_RANGE[1:], "DCV_MAX_RESOLUTION")
 _check_covers(DCV_MAX_RESOLUTION, [DCV_AUTO_REFERENCE_RANGE], "DCV_MAX_RESOLUTION")
 _check_covers(DCI_MAX_RESOLUTION, gui.I_RANGE[1:], "DCI_MAX_RESOLUTION")

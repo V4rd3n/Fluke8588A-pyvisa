@@ -3,6 +3,7 @@ from Fluke8588A.instrument import scpi
 from Fluke8588A.data import defaults, gui_values
 from Fluke8588A.views.main_window import MainWindow  
 from Fluke8588A.views.trigger_base import TriggerBaseWindow
+from Fluke8588A.views.trigger_advanced import TriggerAdvancedWindow
 from Fluke8588A.views.graph_window import GraphWindow
 from Fluke8588A.data.settings import (
 	AciSettings,
@@ -11,7 +12,10 @@ from Fluke8588A.data.settings import (
 	DcvSettings,
 	DigitizeSettings,
 	OhmsSettings,
+	TriggerAdvancedSettings,
 	TriggerBaseSettings,
+	TriggerLayerSettings,
+	TriggerSignalSettings,
 )
 # Unused: only the commented continuous reading handlers need it
 # from Fluke8588A.controllers.measurement_controller import ReadingThread
@@ -19,12 +23,17 @@ from Fluke8588A.services.translator import Translator
 from Fluke8588A.services import translation_tables as tables
 from PyQt6.QtWidgets import QApplication
 from dataclasses import replace
+import logging
+
+logger = logging.getLogger(__name__)
+
 class AppController:
-	TEST_MODE = True  # Set to False to disable debug output
+	TEST_MODE = True  # Set to False to disable debug output (logger level, see main.py)
 	
 	def __init__(self):
 		self._view = MainWindow()
 		self._trigger_base_pop_up = TriggerBaseWindow()
+		self._trigger_advanced_pop_up = TriggerAdvancedWindow()
 		self._graph_window = GraphWindow()
 		# self._trigger_pop_up = TriggerWindow()
 		# self._view.set_disconnected()
@@ -37,6 +46,8 @@ class AppController:
 		self._digitize_settings = defaults.digitize_settings()
 		self._trigger_base_settings = defaults.trigger_base_settings()
 		self._trigger_base_pop_up.set_settings(self._trigger_base_settings)
+		self._trigger_advanced_settings = defaults.trigger_advanced_settings()
+		self._trigger_advanced_pop_up.set_settings(self._trigger_advanced_settings)
 		
 		self._connect_signals()
 		QApplication.instance().aboutToQuit.connect(
@@ -51,7 +62,7 @@ class AppController:
 
 	def _pre_translate_defaults(self):
 		"""Translate default GUI settings to machine format upon initialization."""
-		if self.TEST_MODE: print(">>> _pre_translate_defaults")
+		logger.debug(">>> _pre_translate_defaults")
 		self._view.set_dcv_settings(self._dcv_settings)
 		self._view.set_dci_settings(self._dci_settings)
 		self._view.set_acv_settings(self._acv_settings)
@@ -59,7 +70,7 @@ class AppController:
 		self._view.set_ohms_settings(self._ohms_settings)
 		self._view.set_digitize_settings(self._digitize_settings)
 		self._update_view_aperture_values()
-		if self.TEST_MODE: print("<<< _pre_translate_defaults")
+		logger.debug("<<< _pre_translate_defaults")
 
 	def _connect_signals(self):
 		self._view.scan_requested.connect(self._on_scan)
@@ -74,6 +85,9 @@ class AppController:
 		self._view.trigger_base_requested.connect(self._on_trigger_base_press)
 		self._trigger_base_pop_up.set_requested.connect(self._on_trigger_base_set)
 		self._trigger_base_pop_up.reset_requested.connect(self._on_trigger_base_reset)
+		self._view.trigger_advanced_requested.connect(self._on_trigger_advanced_press)
+		self._trigger_advanced_pop_up.set_requested.connect(self._on_trigger_advanced_set)
+		self._trigger_advanced_pop_up.reset_requested.connect(self._on_trigger_advanced_reset)
 		self._view.aperture_value_changed.connect(self._on_aperture_value_changed)
 		self._view.closed.connect(self._on_main_window_closed)
 		""" self._view.init_requested.connect(self._on_init)
@@ -90,23 +104,24 @@ class AppController:
 	Unused: not connected to any signal, the new view has no read display
 	(set_read) yet.
 	def _on_read(self):
-		if self.TEST_MODE: print(f">>> _on_read")
+		logger.debug(f">>> _on_read")
 		if not self._instr_ctrl.is_connected():
 			self._view.set_status("ERROR: not connected.")
-			if self.TEST_MODE: print(f"<<< _on_read (not connected)")
+			logger.debug(f"<<< _on_read (not connected)")
 			return
 		try:
 			value=self._instr_ctrl.read()
 			print(value) # REMOVE
 			self._view.set_read(value)
-			if self.TEST_MODE: print(f"<<< _on_read (value={value})")
+			logger.debug(f"<<< _on_read (value={value})")
 		except Exception as e:
 			self._view.set_status(f"Read error: {e}")
-			if self.TEST_MODE: print(f"<<< _on_read (error={e})")
+			logger.debug(f"<<< _on_read (error={e})")
 	'''
 
 	def _on_main_window_closed(self):
 		self._trigger_base_pop_up.close()
+		self._trigger_advanced_pop_up.close()
 		self._graph_window.close()
 
 	def _on_application_about_to_quit(self):
@@ -116,27 +131,26 @@ class AppController:
 		try:
 			self._instr_ctrl.disconnect()
 		except Exception as error:
-			if self.TEST_MODE:
-				print(f"Instrument disconnect on close failed: {error}")
+			logger.warning(f"Instrument disconnect on close failed: {error}")
 
 	'''
 	Legacy GPIB init and mode selection of the old GUI: replaced by
 	_on_scan/_on_connect and by the function tabs of the view
 	(current_gpib_address, current_mode and set_mode_visible no longer exist).
 	def _on_init(self):
-		if self.TEST_MODE: print(f">>> _on_init (gpib_address={self._view.current_gpib_address})")
+		logger.debug(f">>> _on_init (gpib_address={self._view.current_gpib_address})")
 		if hasattr(self, '_instr_ctrl'):
 			if self._instr_ctrl.is_connected():
 				self._instr_ctrl.disconnect()
 		self._instr_ctrl.connect(self._view.current_gpib_address)
 		self._view.set_connected()
 		self._view.set_status("Connected")
-		if self.TEST_MODE: print(f"<<< _on_init")
+		logger.debug(f"<<< _on_init")
 	
 	def _on_mode_change(self):
-		if self.TEST_MODE: print(f">>> _on_mode_change (mode={self._view.current_mode})")
+		logger.debug(f">>> _on_mode_change (mode={self._view.current_mode})")
 		self._view.set_mode_visible(self._view.current_mode)
-		if self.TEST_MODE: print(f"<<< _on_mode_change")
+		logger.debug(f"<<< _on_mode_change")
 	'''
 
 	'''
@@ -144,11 +158,11 @@ class AppController:
 	presenter settings after the instrument accepts the requested values.
 	def _on_set(self):
 		mode=self._view.current_mode
-		if self.TEST_MODE: print(f">>> _on_set (mode={mode})")
+		logger.debug(f">>> _on_set (mode={mode})")
 		new_settings=self.get_settings_from_mode(mode)
-		if self.TEST_MODE: print(f"    SEND_TO_INSTRUMENT: {new_settings}")
+		logger.debug(f"    SEND_TO_INSTRUMENT: {new_settings}")
 		actual_settings=self._instr_ctrl.set(mode, new_settings)
-		if self.TEST_MODE: print(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
+		logger.debug(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
 		
 		#Reverse-translate machine values back to GUI format
 		if mode == "DCV":
@@ -184,10 +198,10 @@ class AppController:
 			self._ohms_settings = gui_settings
 		
 		# Update the GUI to reflect actual settings
-		if self.TEST_MODE: print(f"    REVERSE_TRANSLATED: {gui_settings}")
+		logger.debug(f"    REVERSE_TRANSLATED: {gui_settings}")
 		self._view.set_status(f"{mode} settings applied")
 		self._refresh_ui_settings()
-		if self.TEST_MODE: print(f"<<< _on_set")
+		logger.debug(f"<<< _on_set")
 	'''
 
 	'''
@@ -215,37 +229,50 @@ class AppController:
 	'''
 	Unused: the advanced trigger window (self._trigger_pop_up) is not created yet.
 	def _on_trigger_press(self):
-		if self.TEST_MODE: print(f">>> _on_trigger_press")
+		logger.debug(f">>> _on_trigger_press")
 		self._trigger_pop_up.show()
-		if self.TEST_MODE: print(f"<<< _on_trigger_press")
+		logger.debug(f"<<< _on_trigger_press")
 	'''
 
 	def _on_trigger_base_press(self):
-		if self.TEST_MODE: print(f">>> _on_trigger_base_press")
+		logger.debug(f">>> _on_trigger_base_press")
 		self._trigger_base_pop_up.show()
-		if self.TEST_MODE: print(f"<<< _on_trigger_base_press")
+		logger.debug(f"<<< _on_trigger_base_press")
 
 	def _on_trigger_base_set(self):
 		settings = self._trigger_base_pop_up.get_settings()
 		try:
-			self._instr_ctrl.set_trigger_base(self._translate_trigger_base_settings(settings))
-			self._trigger_base_settings = settings
+			actual = self._instr_ctrl.set_trigger_base(self._translate_trigger_base_settings(settings))
+			self._set_trigger_base_settings(self._translate_trigger_base_settings_to_gui(actual))
+			self._set_trigger_advanced_settings(self._advanced_with_base_trigger(
+				self._trigger_advanced_settings, self._trigger_base_settings
+			))
 			self._trigger_base_pop_up.close()
 			self._view.set_status("Base trigger settings applied")
 		except Exception as error:
 			self._view.set_status(f"Base trigger error: {error}")
 
 	def _on_trigger_base_reset(self):
-		self._trigger_base_settings = defaults.trigger_base_settings()
-		self._trigger_base_pop_up.set_settings(self._trigger_base_settings)
+		# GUI state changes only once the instrument has accepted the reset
+		base = defaults.trigger_base_settings()
+		# :TRIG:RESet resets the ARM layers too, but not INIT:CONT
+		current = self._trigger_advanced_settings
+		advanced = replace(
+			defaults.trigger_advanced_settings(),
+			initiate_mode=current.initiate_mode,
+			epoch_start=current.epoch_start,
+			epoch_stop=current.epoch_stop,
+		)
 		try:
 			self._instr_ctrl.reset_trigger_base()
-			self._instr_ctrl.set_trigger_base(
-				self._translate_trigger_base_settings(self._trigger_base_settings)
-			)
+			actual = self._instr_ctrl.set_trigger_base(self._translate_trigger_base_settings(base))
+			self._set_trigger_base_settings(self._translate_trigger_base_settings_to_gui(actual))
+			self._set_trigger_advanced_settings(self._advanced_with_base_trigger(
+				advanced, self._trigger_base_settings
+			))
 			self._view.set_status("Base trigger reset")
 		except Exception as error:
-			self._view.set_status(f"Base trigger reset error: {error}")
+			self._view.set_status(f"Base trigger reset error: {error}{self._refresh_trigger_settings()}")
 
 	def _translate_trigger_base_settings(self, settings: TriggerBaseSettings) -> TriggerBaseSettings:
 		return replace(
@@ -257,34 +284,182 @@ class AppController:
 				else self._translator.translate("trigger_external_edge", settings.ext_edge)
 			),
 		)
+
+	def _translate_trigger_base_settings_to_gui(self, settings: TriggerBaseSettings) -> TriggerBaseSettings:
+		return replace(
+			settings,
+			source=self._translator.translate_from_machine("trigger_source", settings.source),
+			ext_edge=(
+				None
+				if settings.ext_edge is None
+				else self._translator.translate_from_machine("trigger_external_edge", settings.ext_edge)
+			),
+		)
+
+	def _on_trigger_advanced_press(self):
+		logger.debug(f">>> _on_trigger_advanced_press")
+		self._trigger_advanced_pop_up.show()
+		logger.debug(f"<<< _on_trigger_advanced_press")
+
+	def _on_trigger_advanced_set(self):
+		settings = self._trigger_advanced_pop_up.get_settings()
+		try:
+			actual = self._instr_ctrl.set_trigger_advanced(self._translate_trigger_advanced_settings(settings))
+			self._set_trigger_advanced_settings(self._translate_trigger_advanced_settings_to_gui(actual))
+			self._set_trigger_base_settings(self._base_with_advanced_trigger(
+				self._trigger_base_settings, self._trigger_advanced_settings
+			))
+			self._trigger_advanced_pop_up.close()
+			self._view.set_status("Advanced trigger settings applied")
+		except Exception as error:
+			self._view.set_status(f"Advanced trigger error: {error}")
+
+	def _on_trigger_advanced_reset(self):
+		# GUI state changes only once the instrument has accepted the reset
+		advanced = defaults.trigger_advanced_settings()
+		try:
+			self._instr_ctrl.reset_trigger_base()
+			actual = self._instr_ctrl.set_trigger_advanced(self._translate_trigger_advanced_settings(advanced))
+			self._set_trigger_advanced_settings(self._translate_trigger_advanced_settings_to_gui(actual))
+			self._set_trigger_base_settings(self._base_with_advanced_trigger(
+				defaults.trigger_base_settings(), self._trigger_advanced_settings
+			))
+			self._view.set_status("Advanced trigger reset")
+		except Exception as error:
+			self._view.set_status(f"Advanced trigger reset error: {error}{self._refresh_trigger_settings()}")
+
+	def _refresh_trigger_settings(self) -> str:
+		"""
+		After a failed reset the instrument may be half reset: read the layers
+		back so the GUI follows it. Returns a note for the status bar.
+		"""
+		try:
+			actual = self._instr_ctrl.get_trigger_advanced(
+				self._translate_trigger_advanced_settings(self._trigger_advanced_settings)
+			)
+		except Exception as error:
+			logger.debug(f"_refresh_trigger_settings (error={error})")
+			return " (trigger state could not be read back, the GUI may not match the instrument)"
+		self._set_trigger_advanced_settings(self._translate_trigger_advanced_settings_to_gui(actual))
+		self._set_trigger_base_settings(self._base_with_advanced_trigger(
+			self._trigger_base_settings, self._trigger_advanced_settings
+		))
+		return " (trigger state read back from the instrument)"
+
+	def _translate_trigger_advanced_settings(self, settings: TriggerAdvancedSettings) -> TriggerAdvancedSettings:
+		return replace(
+			settings,
+			initiate_mode=self._translator.translate("trigger_initiate_mode", settings.initiate_mode),
+			ext_edge=self._translator.translate("trigger_external_edge", settings.ext_edge),
+			arm2=self._translate_trigger_layer(settings.arm2),
+			arm1=self._translate_trigger_layer(settings.arm1),
+			trigger=self._translate_trigger_layer(settings.trigger),
+		)
+
+	def _translate_trigger_advanced_settings_to_gui(self, settings: TriggerAdvancedSettings) -> TriggerAdvancedSettings:
+		return replace(
+			settings,
+			initiate_mode=self._translator.translate_from_machine("trigger_initiate_mode", settings.initiate_mode),
+			ext_edge=self._translator.translate_from_machine("trigger_external_edge", settings.ext_edge),
+			arm2=self._translate_trigger_layer_to_gui(settings.arm2),
+			arm1=self._translate_trigger_layer_to_gui(settings.arm1),
+			trigger=self._translate_trigger_layer_to_gui(settings.trigger),
+		)
+
+	# The base window edits the TRIG layer of the advanced one: keep the two in step
+	def _set_trigger_base_settings(self, settings: TriggerBaseSettings) -> None:
+		self._trigger_base_settings = settings
+		self._trigger_base_pop_up.set_settings(settings)
+
+	def _set_trigger_advanced_settings(self, settings: TriggerAdvancedSettings) -> None:
+		self._trigger_advanced_settings = settings
+		self._trigger_advanced_pop_up.set_settings(settings)
+
+	def _advanced_with_base_trigger(
+		self, advanced: TriggerAdvancedSettings, base: TriggerBaseSettings
+	) -> TriggerAdvancedSettings:
+		"""Advanced settings with the TRIG layer, edge and signal sent by the base trigger."""
+		trigger = replace(
+			advanced.trigger,
+			source=base.source,
+			count=base.count,
+			ecount=base.ecount,
+			delay=base.delay,
+			delay_auto=base.delay_auto,
+			holdoff=base.holdoff,
+			holdoff_auto=base.holdoff_auto,
+		)
+		# The base trigger sends timer, edge and signal only for their source
+		if base.source == gui_values.TRIGGER_SOURCE_TIMER:
+			trigger = replace(trigger, timer=base.timer)
+		advanced = replace(advanced, trigger=trigger)
+		if base.source == gui_values.TRIGGER_SOURCE_EXTERNAL:
+			advanced = replace(advanced, ext_edge=base.ext_edge)
+		if base.source == gui_values.TRIGGER_SOURCE_INTERNAL:
+			advanced = replace(advanced, signal=TriggerSignalSettings(
+				coupling=base.sig_coupling,
+				slope=base.sig_slope,
+				level=base.sig_level,
+				filter=base.sig_filter,
+			))
+		return advanced
+
+	def _base_with_advanced_trigger(
+		self, base: TriggerBaseSettings, advanced: TriggerAdvancedSettings
+	) -> TriggerBaseSettings:
+		"""Base settings showing the TRIG layer, edge and signal of the advanced trigger."""
+		trigger = advanced.trigger
+		return replace(
+			base,
+			source=trigger.source,
+			count=trigger.count,
+			ecount=trigger.ecount,
+			delay=trigger.delay,
+			delay_auto=trigger.delay_auto,
+			holdoff=trigger.holdoff,
+			holdoff_auto=trigger.holdoff_auto,
+			timer=trigger.timer,
+			ext_edge=advanced.ext_edge,
+			sig_coupling=advanced.signal.coupling,
+			sig_slope=advanced.signal.slope,
+			sig_level=advanced.signal.level,
+			sig_filter=advanced.signal.filter,
+		)
+
+	def _translate_trigger_layer(self, layer: TriggerLayerSettings) -> TriggerLayerSettings:
+		# replace keeps the subclass, so the TRIG layer keeps its holdoff
+		return replace(layer, source=self._translator.translate("trigger_source", layer.source))
+
+	def _translate_trigger_layer_to_gui(self, layer: TriggerLayerSettings) -> TriggerLayerSettings:
+		return replace(layer, source=self._translator.translate_from_machine("trigger_source", layer.source))
 			
 	'''
 	Legacy aperture handlers of the old GUI: replaced by _on_aperture_value_changed,
 	the view methods they call (set_aperture_mode, set_time_value,
 	set_nplc_value) no longer exist.
 	def _on_aperture_mode_changed(self, mode):
-		if self.TEST_MODE: print(f">>> _on_aperture_mode_changed (mode={mode})")
+		logger.debug(f">>> _on_aperture_mode_changed (mode={mode})")
 		self._view.set_aperture_mode(mode)
 		current_mode = self._view.current_mode
 		settings = self.get_settings_from_mode(current_mode)
 		settings.aperture_mode = mode
-		if self.TEST_MODE: print(f"<<< _on_aperture_mode_changed")
+		logger.debug(f"<<< _on_aperture_mode_changed")
 
 	def _on_time_changed(self, time):
-		if self.TEST_MODE: print(f">>> _on_time_changed (time={time})")
+		logger.debug(f">>> _on_time_changed (time={time})")
 		self._view.set_time_value(time)
 		current_mode = self._view.current_mode
 		settings = self.get_settings_from_mode(current_mode)
 		settings.time = time
-		if self.TEST_MODE: print(f"<<< _on_time_changed")
+		logger.debug(f"<<< _on_time_changed")
 
 	def _on_nplc_changed(self, nplc):
 		# NPLC is handled via _on_time_changed (same value, different units)
 		# This just updates the display label for reference
-		if self.TEST_MODE: print(f">>> _on_nplc_changed (nplc={nplc})")
+		logger.debug(f">>> _on_nplc_changed (nplc={nplc})")
 		self._current_nplc = nplc
 		self._view.set_nplc_value(nplc)
-		if self.TEST_MODE: print(f"<<< _on_nplc_changed")
+		logger.debug(f"<<< _on_nplc_changed")
 	'''
 
 	def calculate_plc(self, time: float) -> float:
@@ -465,21 +640,21 @@ class AppController:
 		)
 
 	def _on_dcv_set(self):
-		if self.TEST_MODE: print(">>> _on_dcv_set")
+		logger.debug(">>> _on_dcv_set")
 		try:
 			requested_settings = self._translate_dcv_settings(self._view.get_dcv_settings())
-			if self.TEST_MODE: print(f"    SEND_TO_INSTRUMENT: {requested_settings}")
+			logger.debug(f"    SEND_TO_INSTRUMENT: {requested_settings}")
 			actual_settings = self._instr_ctrl.set_dcv(requested_settings)
-			if self.TEST_MODE: print(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
+			logger.debug(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
 			self._dcv_settings = self._translate_dcv_settings_to_gui(actual_settings)
 			self._show_dcv_settings()
 			self._view.set_status("DCV configured.")
 			self._graph_window.show_function("DCV")
 		except Exception as error:
 			self._view.set_status(f"DCV set error: {error}")
-			if self.TEST_MODE: print(f"<<< _on_dcv_set (error={error})")
+			logger.debug(f"<<< _on_dcv_set (error={error})")
 			return
-		if self.TEST_MODE: print("<<< _on_dcv_set")
+		logger.debug("<<< _on_dcv_set")
 
 	def _show_dcv_settings(self):
 		"""Show the applied DCV settings (GUI format), PLC included when known."""
@@ -492,21 +667,21 @@ class AppController:
 			)
 
 	def _on_dci_set(self):
-		if self.TEST_MODE: print(">>> _on_dci_set")
+		logger.debug(">>> _on_dci_set")
 		try:
 			requested_settings = self._translate_dci_settings(self._view.get_dci_settings())
-			if self.TEST_MODE: print(f"    SEND_TO_INSTRUMENT: {requested_settings}")
+			logger.debug(f"    SEND_TO_INSTRUMENT: {requested_settings}")
 			actual_settings = self._instr_ctrl.set_dci(requested_settings)
-			if self.TEST_MODE: print(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
+			logger.debug(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
 			self._dci_settings = self._translate_dci_settings_to_gui(actual_settings)
 			self._show_dci_settings()
 			self._view.set_status("DCI configured.")
 			self._graph_window.show_function("DCI")
 		except Exception as error:
 			self._view.set_status(f"DCI set error: {error}")
-			if self.TEST_MODE: print(f"<<< _on_dci_set (error={error})")
+			logger.debug(f"<<< _on_dci_set (error={error})")
 			return
-		if self.TEST_MODE: print("<<< _on_dci_set")
+		logger.debug("<<< _on_dci_set")
 
 	def _show_dci_settings(self):
 		"""Show the applied DCI settings (GUI format), PLC included when known."""
@@ -519,12 +694,12 @@ class AppController:
 			)
 
 	def _on_acv_set(self):
-		if self.TEST_MODE: print(">>> _on_acv_set")
+		logger.debug(">>> _on_acv_set")
 		try:
 			requested_settings = self._translate_acv_settings(self._view.get_acv_settings())
-			if self.TEST_MODE: print(f"    SEND_TO_INSTRUMENT: {requested_settings}")
+			logger.debug(f"    SEND_TO_INSTRUMENT: {requested_settings}")
 			actual_settings = self._instr_ctrl.set_acv(requested_settings)
-			if self.TEST_MODE: print(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
+			logger.debug(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
 			self._acv_settings = self._translate_acv_settings_to_gui(actual_settings)
 			# ACV has no aperture, nothing else to show
 			self._view.set_acv_settings(self._acv_settings)
@@ -532,17 +707,17 @@ class AppController:
 			self._graph_window.show_function("ACV")
 		except Exception as error:
 			self._view.set_status(f"ACV set error: {error}")
-			if self.TEST_MODE: print(f"<<< _on_acv_set (error={error})")
+			logger.debug(f"<<< _on_acv_set (error={error})")
 			return
-		if self.TEST_MODE: print("<<< _on_acv_set")
+		logger.debug("<<< _on_acv_set")
 
 	def _on_aci_set(self):
-		if self.TEST_MODE: print(">>> _on_aci_set")
+		logger.debug(">>> _on_aci_set")
 		try:
 			requested_settings = self._translate_aci_settings(self._view.get_aci_settings())
-			if self.TEST_MODE: print(f"    SEND_TO_INSTRUMENT: {requested_settings}")
+			logger.debug(f"    SEND_TO_INSTRUMENT: {requested_settings}")
 			actual_settings = self._instr_ctrl.set_aci(requested_settings)
-			if self.TEST_MODE: print(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
+			logger.debug(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
 			self._aci_settings = self._translate_aci_settings_to_gui(actual_settings)
 			# ACI has no aperture, nothing else to show
 			self._view.set_aci_settings(self._aci_settings)
@@ -550,34 +725,34 @@ class AppController:
 			self._graph_window.show_function("ACI")
 		except Exception as error:
 			self._view.set_status(f"ACI set error: {error}")
-			if self.TEST_MODE: print(f"<<< _on_aci_set (error={error})")
+			logger.debug(f"<<< _on_aci_set (error={error})")
 			return
-		if self.TEST_MODE: print("<<< _on_aci_set")
+		logger.debug("<<< _on_aci_set")
 
 	def _on_ohms_set(self):
-		if self.TEST_MODE: print(">>> _on_ohms_set")
+		logger.debug(">>> _on_ohms_set")
 		try:
 			requested_settings = self._translate_ohms_settings(self._view.get_ohms_settings())
-			if self.TEST_MODE: print(f"    SEND_TO_INSTRUMENT: {requested_settings}")
+			logger.debug(f"    SEND_TO_INSTRUMENT: {requested_settings}")
 			actual_settings = self._instr_ctrl.set_ohms(requested_settings)
-			if self.TEST_MODE: print(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
+			logger.debug(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
 			self._ohms_settings = self._translate_ohms_settings_to_gui(actual_settings)
 			self._show_ohms_settings()
 			self._view.set_status("OHMS configured.")
 			self._graph_window.show_function("OHMS")
 		except Exception as error:
 			self._view.set_status(f"OHMS set error: {error}")
-			if self.TEST_MODE: print(f"<<< _on_ohms_set (error={error})")
+			logger.debug(f"<<< _on_ohms_set (error={error})")
 			return
-		if self.TEST_MODE: print("<<< _on_ohms_set")
+		logger.debug("<<< _on_ohms_set")
 
 	def _on_digitize_set(self):
-		if self.TEST_MODE: print(">>> _on_digitize_set")
+		logger.debug(">>> _on_digitize_set")
 		try:
 			requested_settings = self._translate_digitize_settings(self._view.get_digitize_settings())
-			if self.TEST_MODE: print(f"    SEND_TO_INSTRUMENT: {requested_settings}")
+			logger.debug(f"    SEND_TO_INSTRUMENT: {requested_settings}")
 			actual_settings = self._instr_ctrl.set_digitize(requested_settings)
-			if self.TEST_MODE: print(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
+			logger.debug(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
 			self._digitize_settings = self._translate_digitize_settings_to_gui(actual_settings)
 			# The digitize aperture is a time only, no PLC to show
 			self._view.set_digitize_settings(self._digitize_settings)
@@ -585,9 +760,9 @@ class AppController:
 			self._graph_window.show_function("DIGITIZE")
 		except Exception as error:
 			self._view.set_status(f"DIGITIZE set error: {error}")
-			if self.TEST_MODE: print(f"<<< _on_digitize_set (error={error})")
+			logger.debug(f"<<< _on_digitize_set (error={error})")
 			return
-		if self.TEST_MODE: print("<<< _on_digitize_set")
+		logger.debug("<<< _on_digitize_set")
 
 	def _show_ohms_settings(self):
 		"""Show the applied OHMS settings (GUI format), PLC included when known."""
@@ -737,9 +912,9 @@ class AppController:
 	Unused: continuous reading of the old GUI, the new view has no
 	start/stop buttons and no read display yet (see ReadingThread).
 	def _on_continuous_start(self):
-		if self.TEST_MODE: print(f">>> _on_continuous_start")
+		logger.debug(f">>> _on_continuous_start")
 		if self._reading_thread is not None:
-			if self.TEST_MODE: print(f"<<< _on_continuous_start (thread already running)")
+			logger.debug(f"<<< _on_continuous_start (thread already running)")
 			return
 		self._reading_thread=ReadingThread(self._instr_ctrl)
 		self._reading_thread.reading_ready.connect(self._view.set_read) #emits from measurment_controller are redirected to view
@@ -747,37 +922,37 @@ class AppController:
 		self._view.start_button.setEnabled(False)
 		self._view.stop_button.setEnabled(True)
 		self._view.set_status("Continuous reading started.")
-		if self.TEST_MODE: print(f"<<< _on_continuous_start")
+		logger.debug(f"<<< _on_continuous_start")
 		
 
 	def _on_continuous_stop(self):
-		if self.TEST_MODE: print(f">>> _on_continuous_stop")
+		logger.debug(f">>> _on_continuous_stop")
 		if self._reading_thread is None:
-			if self.TEST_MODE: print(f"<<< _on_continuous_stop (no thread running)")
+			logger.debug(f"<<< _on_continuous_stop (no thread running)")
 			return True
 		self._reading_thread.stop()
 		self._reading_thread = None
 		self._view.set_status("Stopped.")
 		self._view.stop_button.setEnabled(False)
 		self._view.start_button.setEnabled(True)
-		if self.TEST_MODE: print(f"<<< _on_continuous_stop")
+		logger.debug(f"<<< _on_continuous_stop")
 	'''
 
 	def _on_scan(self):
-		if self.TEST_MODE: print(">>> _on_scan")
+		logger.debug(">>> _on_scan")
 		try:
 			resources = self._instr_ctrl.scan_resources()
 			self._view.set_scan_results(resources)
 			self._view.set_status(f"Found {len(resources)} VISA resource(s)")
-			if self.TEST_MODE: print(f"    VISA_RESOURCES: {resources}")
+			logger.debug(f"    VISA_RESOURCES: {resources}")
 		except Exception as error:
 			self._view.set_scan_results([])
 			self._view.set_status(f"Scan error: {error}")
-			if self.TEST_MODE: print(f"    SCAN_ERROR: {error}")
-		if self.TEST_MODE: print("<<< _on_scan")
+			logger.debug(f"    SCAN_ERROR: {error}")
+		logger.debug("<<< _on_scan")
 
 	def _on_connect(self, address: str):
-		if self.TEST_MODE: print(f">>> _on_connect (address={address})")
+		logger.debug(f">>> _on_connect (address={address})")
 		try:
 			self._instr_ctrl.connect(address)
 			# Line frequency is read once per connection; the NPLC limits derive from it
@@ -800,16 +975,18 @@ class AppController:
 			self._view.set_ohms_settings(self._ohms_settings)
 			self._digitize_settings = defaults.digitize_settings()
 			self._view.set_digitize_settings(self._digitize_settings)
+			self._set_trigger_base_settings(defaults.trigger_base_settings())
+			self._set_trigger_advanced_settings(defaults.trigger_advanced_settings())
 			self._update_view_aperture_values()
 			self._view.set_connected()
 			self._view.set_status(f"Connected to {address}")
-			if self.TEST_MODE: print(f"<<< _on_connect (connected={address})")
+			logger.debug(f"<<< _on_connect (connected={address})")
 		except Exception as error:
 			self._view.set_status(f"Connection error: {error}")
-			if self.TEST_MODE: print(f"<<< _on_connect (error={error})")
+			logger.debug(f"<<< _on_connect (error={error})")
 
 	def _on_disconnect(self):
-		if self.TEST_MODE: print(">>> _on_disconnect")
+		logger.debug(">>> _on_disconnect")
 		if not self._instr_ctrl.is_connected():
 			self._view.set_disconnected()
 			return
@@ -819,7 +996,7 @@ class AppController:
 			self._line_frequency = None
 			self._view.set_disconnected()
 			self._view.set_status("Disconnected")
-			if self.TEST_MODE: print("<<< _on_disconnect")
+			logger.debug("<<< _on_disconnect")
 		except Exception as error:
 			self._view.set_status(f"Disconnect error: {error}")
-			if self.TEST_MODE: print(f"<<< _on_disconnect (error={error})")
+			logger.debug(f"<<< _on_disconnect (error={error})")

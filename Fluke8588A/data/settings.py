@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Optional
 
 @dataclass
@@ -80,3 +81,38 @@ class TriggerBaseSettings:
     sig_slope:  Optional[str]
     sig_level:  Optional[int]
     sig_filter: Optional[bool]
+
+# One event layer of the advanced trigger (ARM:LAY2, ARM:LAY1, TRIG)
+@dataclass
+class TriggerLayerSettings:
+    source:     str
+    count:      int
+    ecount:     int
+    delay:      float
+    delay_auto: bool
+    timer:      float  # sent only when source is Timer
+
+@dataclass
+class TriggerLayerHoldoffSettings(TriggerLayerSettings):
+    holdoff:      float  # holdoff exists only on the TRIG layer
+    holdoff_auto: bool
+
+# Internal (signal) source settings. On the instrument coupling, slope, level
+# and filter are common to all layers: setting them on one layer changes all
+@dataclass
+class TriggerSignalSettings:
+    coupling:   str
+    slope:      str
+    level:      int  # percentage of range
+    filter:     bool
+
+@dataclass
+class TriggerAdvancedSettings:
+    initiate_mode: str
+    epoch_start:   datetime  # sent only in Epoch mode
+    epoch_stop:    datetime
+    ext_edge:      str  # common to all layers on the instrument
+    signal:        TriggerSignalSettings
+    arm2:          TriggerLayerSettings
+    arm1:          TriggerLayerSettings
+    trigger:       TriggerLayerHoldoffSettings

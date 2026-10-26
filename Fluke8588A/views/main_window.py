@@ -22,6 +22,7 @@ class MainWindow(QMainWindow):
 	ohms_set_requested = pyqtSignal()
 	digitize_set_requested = pyqtSignal()
 	trigger_base_requested = pyqtSignal()
+	trigger_advanced_requested = pyqtSignal()
 	aperture_value_changed = pyqtSignal(str, str, float)
 	closed = pyqtSignal()
 
@@ -62,6 +63,7 @@ class MainWindow(QMainWindow):
 		self.ohms_set_pushbutton.clicked.connect(self.ohms_set_requested)
 		self.digi_set_pushbutton.clicked.connect(self.digitize_set_requested)
 		self.trig_base_pushbutton.pressed.connect(self.trigger_base_requested)
+		self.trig_adv_pushbutton.pressed.connect(self.trigger_advanced_requested)
 		for function, time_spinbox, plc_spinbox in (
 			("DCV", self.dcv_time_spinbox, self.dcv_plc_spinbox),
 			("DCI", self.dci_time_spinbox, self.dci_plc_spinbox),

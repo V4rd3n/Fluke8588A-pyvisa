@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from typing import Optional  # TYPE_CHECKING unused
 
 import pyvisa
@@ -12,8 +13,14 @@ from Fluke8588A.data.settings import (
     DciSettings,
     DigitizeSettings,
     OhmsSettings,
+    TriggerAdvancedSettings,
     TriggerBaseSettings,
+    TriggerLayerHoldoffSettings,
+    TriggerLayerSettings,
+    TriggerSignalSettings,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class InstrumentController:
@@ -25,7 +32,7 @@ class InstrumentController:
     def __init__(self):
         """Initialize the controller without connecting to any instrument."""
         self._instrument: Optional[Fluke8588A] = None
-        logging.info("InstrumentController initialized")
+        logger.info("InstrumentController initialized")
 
     def scan_resources(self) -> list[dict[str, str]]:
         """Find VISA resources and return display and connection information."""
@@ -44,7 +51,7 @@ class InstrumentController:
                     finally:
                         instrument.close()
                 except Exception as error:
-                    logging.warning("Could not identify VISA resource %s: %s", address, error)
+                    logger.warning("Could not identify VISA resource %s: %s", address, error)
 
                 identity_parts = [part.strip() for part in identity.split(",")]
                 if identity != "No identification response":
@@ -86,7 +93,7 @@ class InstrumentController:
             self.disconnect()
         
         self._instrument = Fluke8588A(address)
-        logging.info(f"Connected to instrument at address {address}")
+        logger.info(f"Connected to instrument at address {address}")
     
     def disconnect(self) -> None:
         """
@@ -95,7 +102,7 @@ class InstrumentController:
         if self._instrument is not None:
             self._instrument.close()
             self._instrument = None
-            logging.info("Disconnected from instrument")
+            logger.info("Disconnected from instrument")
     
     def read(self) -> str:
         """
@@ -140,9 +147,8 @@ class InstrumentController:
             raise RuntimeError("Cannot reset trigger base: not connected to instrument")
         self._instrument.resetTrigger(scpi.ROOT_TRIGGER)
 
-    # TODO: This is a test and should be reworked with a setTrigger in the Fluke8588A class
-    def set_trigger_base(self, settings: TriggerBaseSettings) -> None:
-        """Apply base-trigger settings (SCPI values) to the connected instrument."""
+    def set_trigger_base(self, settings: TriggerBaseSettings) -> TriggerBaseSettings:
+        """Apply base-trigger settings (SCPI values) and return the values read back."""
         if not self.is_connected():
             raise RuntimeError("Cannot set trigger base: not connected to instrument")
 
@@ -150,10 +156,12 @@ class InstrumentController:
         self._instrument.setSource(root, settings.source)
         self._instrument.setCount(root, settings.count)
         self._instrument.setEcount(root, settings.ecount)
-        self._instrument.setDelayMode(root, settings.delay_auto)
+        # Value before the AUTO state, so the AUTO state is the one left set
+        # (on the instrument writing the value does not change AUTO, the order is a safeguard)
         self._instrument.setDelay(root, settings.delay)
-        self._instrument.setHoldoffAuto(root, settings.holdoff_auto)
+        self._instrument.setDelayMode(root, settings.delay_auto)
         self._instrument.setHoldoff(root, settings.holdoff)
+        self._instrument.setHoldoffAuto(root, settings.holdoff_auto)
         if settings.source == scpi.TRIGGER_SOURCE_TIMER:
             self._instrument.setTimer(root, settings.timer)
         if settings.source == scpi.TRIGGER_SOURCE_EXTERNAL:
@@ -163,6 +171,154 @@ class InstrumentController:
             self._instrument.setSlope(root, settings.sig_slope)
             self._instrument.setLevel(root, settings.sig_level)
             self._instrument.setFilter(root, settings.sig_filter)
+        self._instrument.check_errors()
+
+        # Read back only after all writes; timer, edge and signal were sent
+        # only for their source, the others keep the requested values
+        layer = self._get_trigger_layer(root, settings)
+        actual = replace(
+            settings,
+            source=layer.source,
+            count=layer.count,
+            ecount=layer.ecount,
+            delay=layer.delay,
+            delay_auto=layer.delay_auto,
+            holdoff=layer.holdoff,
+            holdoff_auto=layer.holdoff_auto,
+            timer=layer.timer,
+        )
+        if settings.source == scpi.TRIGGER_SOURCE_EXTERNAL:
+            actual = replace(actual, ext_edge=self._instrument.get_trigger_external(root))
+        if settings.source == scpi.TRIGGER_SOURCE_INTERNAL:
+            signal = self._instrument.get_trigger_signal(root)
+            actual = replace(
+                actual,
+                sig_coupling=signal["coupling"],
+                sig_slope=signal["slope"],
+                sig_level=signal["level"],
+                sig_filter=signal["filter"],
+            )
+        return actual
+
+    def set_trigger_advanced(self, settings: TriggerAdvancedSettings) -> TriggerAdvancedSettings:
+        """Apply advanced-trigger settings (SCPI values) and return the values read back."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set trigger advanced: not connected to instrument")
+
+        for root, layer in (
+            (scpi.ROOT_ARM2, settings.arm2),
+            (scpi.ROOT_ARM1, settings.arm1),
+            (scpi.ROOT_TRIGGER, settings.trigger),
+        ):
+            self._set_trigger_layer(root, layer, settings.ext_edge, settings.signal)
+
+        # Initiate last: CONT ON starts the trigger cycle with the layers already set
+        root = scpi.ROOT_INITIATE
+        if settings.initiate_mode == scpi.INITIATE_EPOCH:
+            # Epoch switches CONT to ON at start and back to OFF at stop
+            self._instrument.setContinuos(root, False)
+            self._instrument.setEpochStart(root, settings.epoch_start)
+            self._instrument.setEpochStop(root, settings.epoch_stop)
+        else:
+            # A previous Epoch would still switch CONT at its dates
+            self._instrument.setEpochStart(root, scpi.EPOCH_DISABLED)
+            self._instrument.setEpochStop(root, scpi.EPOCH_DISABLED)
+            self._instrument.setContinuos(
+                root, settings.initiate_mode == scpi.INITIATE_CONTINUOUS_ON
+            )
+        self._instrument.check_errors()
+
+        # Read back only after all writes
+        return self._read_trigger_advanced(settings)
+
+    def get_trigger_advanced(self, fallback: TriggerAdvancedSettings) -> TriggerAdvancedSettings:
+        """
+        Read back the whole trigger state without writing anything (SCPI values):
+        timer, edge and signal too, whatever the sources. Initiate mode and
+        Epoch dates cannot be read back and keep the fallback values.
+        """
+        if not self.is_connected():
+            raise RuntimeError("Cannot get trigger advanced: not connected to instrument")
+
+        return self._read_trigger_advanced(fallback, complete=True)
+
+    def _read_trigger_advanced(
+        self, fallback: TriggerAdvancedSettings, complete: bool = False
+    ) -> TriggerAdvancedSettings:
+        """
+        Read back the event layers. Initiate mode and Epoch dates keep the
+        fallback values: CONT? cannot tell Epoch from Continuous OFF. Unless
+        complete, timer, edge and signal are read only for the sources that
+        use them, as they are sent only then.
+        """
+        layers = {
+            "arm2": (scpi.ROOT_ARM2, fallback.arm2),
+            "arm1": (scpi.ROOT_ARM1, fallback.arm1),
+            "trigger": (scpi.ROOT_TRIGGER, fallback.trigger),
+        }
+        actual = replace(fallback, **{
+            name: self._get_trigger_layer(root, None if complete else layer)
+            for name, (root, layer) in layers.items()
+        })
+        roots = [root for root, _ in layers.values()]
+        sources = [actual.arm2.source, actual.arm1.source, actual.trigger.source]
+        # Edge and signal are common to all layers (:TRIG:RESet resets them too):
+        # read them from any layer, or from the first one using them
+        external = complete or scpi.TRIGGER_SOURCE_EXTERNAL in sources
+        signal_root = scpi.ROOT_TRIGGER if complete else next(
+            (root for root, source in zip(roots, sources) if source == scpi.TRIGGER_SOURCE_INTERNAL),
+            None,
+        )
+        if external:
+            actual = replace(
+                actual, ext_edge=self._instrument.get_trigger_external(scpi.ROOT_TRIGGER)
+            )
+        if signal_root is not None:
+            actual = replace(
+                actual, signal=TriggerSignalSettings(**self._instrument.get_trigger_signal(signal_root))
+            )
+        return actual
+
+    def _get_trigger_layer(self, root: str, requested):
+        """
+        Read back one event layer; the timer only when the source is Timer,
+        as it is sent only then. requested is a layer or base-trigger settings,
+        None to keep the timer read from the instrument whatever the source.
+        """
+        holdoff = root == scpi.ROOT_TRIGGER
+        layer = self._instrument.get_trigger_layer(root, holdoff=holdoff)
+        if requested is not None and layer["source"] != scpi.TRIGGER_SOURCE_TIMER:
+            layer["timer"] = requested.timer
+        if holdoff:
+            return TriggerLayerHoldoffSettings(**layer)
+        return TriggerLayerSettings(**layer)
+
+    def _set_trigger_layer(
+        self,
+        root: str,
+        layer: TriggerLayerSettings,
+        ext_edge: str,
+        signal: TriggerSignalSettings,
+    ) -> None:
+        """Apply one event layer; ext_edge and signal are sent only if its source uses them."""
+        self._instrument.setSource(root, layer.source)
+        self._instrument.setCount(root, layer.count)
+        self._instrument.setEcount(root, layer.ecount)
+        # Value before the AUTO state, so the AUTO state is the one left set
+        self._instrument.setDelay(root, layer.delay)
+        self._instrument.setDelayMode(root, layer.delay_auto)
+        if isinstance(layer, TriggerLayerHoldoffSettings):
+            self._instrument.setHoldoff(root, layer.holdoff)
+            self._instrument.setHoldoffAuto(root, layer.holdoff_auto)
+        if layer.source == scpi.TRIGGER_SOURCE_TIMER:
+            self._instrument.setTimer(root, layer.timer)
+        if layer.source == scpi.TRIGGER_SOURCE_EXTERNAL:
+            self._instrument.setExternal(root, ext_edge)
+        if layer.source == scpi.TRIGGER_SOURCE_INTERNAL:
+            self._instrument.setCoupling(root, signal.coupling)
+            self._instrument.setSlope(root, signal.slope)
+            self._instrument.setLevel(root, signal.level)
+            self._instrument.setFilter(root, signal.filter)
     
     def reset(self) -> None:
         """

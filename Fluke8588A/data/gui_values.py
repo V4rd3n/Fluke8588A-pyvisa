@@ -90,10 +90,27 @@ TRIGGER_COUPLING_AC = "AC"
 TRIGGER_SLOPE_POS = "POS"
 TRIGGER_SLOPE_NEG = "NEG"
 
-# Base trigger spin boxes (min, max)
-TRIGGER_COUNT_RANGE = (1, 1_000_000)
-TRIGGER_ECOUNT_RANGE = (1, 1_000_000)
-TRIGGER_DELAY_RANGE = (0.0, 999_999.0)
-TRIGGER_HOLDOFF_RANGE = (0.00000003, 4_000_000.0)
-TRIGGER_TIMER_RANGE = (0.0, 999_999_999.0)
-TRIGGER_LEVEL_RANGE = (-1_000_000, 1_000_000)
+# Trigger spin boxes (min, max), checked on the instrument: out of range is
+# -222. COUNt is 10 000 000 on the TRIG layer too (the manual says 1 000 000)
+TRIGGER_COUNT_RANGE = (1, 10_000_000)
+TRIGGER_ECOUNT_RANGE = (1, 10_000_000)
+# DELay: the smallest non zero delay is 30 ns, lower values are rounded up
+TRIGGER_DELAY_RANGE = (0.0, 1_000_000.0)
+TRIGGER_HOLDOFF_RANGE = (0.0, 100.0)
+# TIMer: lower values are rounded up to 20 ns
+TRIGGER_TIMER_RANGE = (2e-8, 1_000_000.0)
+# LEVel: percentage of range
+TRIGGER_LEVEL_RANGE = (-200, 200)
+# Seconds, enough decimals for the 30 ns delay, 20 ns timer and 30 ns holdoff
+TRIGGER_DELAY_DECIMALS = 8
+TRIGGER_HOLDOFF_DECIMALS = 8
+TRIGGER_TIMER_DECIMALS = 8
+
+# Advanced trigger
+TRIGGER_INITIATE_CONTINUOUS_ON = "Continuous ON"
+TRIGGER_INITIATE_CONTINUOUS_OFF = "Continuous OFF"
+TRIGGER_INITIATE_EPOCH = "Epoch"
+TRIGGER_INITIATE_MODES = [
+	TRIGGER_INITIATE_CONTINUOUS_OFF, TRIGGER_INITIATE_CONTINUOUS_ON, TRIGGER_INITIATE_EPOCH,
+]
+TRIGGER_EPOCH_DISPLAY_FORMAT = "yyyy-MM-dd HH:mm:ss"

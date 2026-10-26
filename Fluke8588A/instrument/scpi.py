@@ -7,6 +7,7 @@ translation layer import this module: views never do.
 
 Access it as a namespace:  from Fluke8588A.instrument import scpi  ->  scpi.ROOT_DCV
 """
+from datetime import datetime
 
 # Communication timeouts; the address is chosen from the VISA resource scan
 TIMEOUT_MS = 10_000
@@ -164,13 +165,35 @@ TRIGGER_SOURCE_LINE = "LINE"
 TRIGGER_SOURCE_MANUAL = "MANual"
 TRIGGER_SOURCE_SYNCHRONOUS = "SYNChronous"
 TRIGGER_SOURCE_TIMER = "TIMer"
+TRIGGER_SOURCES = [
+    TRIGGER_SOURCE_BUS, TRIGGER_SOURCE_EXTERNAL, TRIGGER_SOURCE_HOLD,
+    TRIGGER_SOURCE_IMMEDIATE, TRIGGER_SOURCE_INTERNAL, TRIGGER_SOURCE_LINE,
+    TRIGGER_SOURCE_MANUAL, TRIGGER_SOURCE_SYNCHRONOUS, TRIGGER_SOURCE_TIMER,
+]
 
 # External trigger edges (<trigger root>:EXTernal)
 TRIGGER_EXT_NEG_TTL = "NEGative,TTL"
 TRIGGER_EXT_POS_TTL = "POSitive,TTL"
 TRIGGER_EXT_NEG_BIPOLAR = "NEGative,BIPolar"
 TRIGGER_EXT_POS_BIPOLAR = "POSitive,BIPolar"
+TRIGGER_EXTERNAL_EDGES = [
+    TRIGGER_EXT_NEG_TTL, TRIGGER_EXT_POS_TTL, TRIGGER_EXT_NEG_BIPOLAR, TRIGGER_EXT_POS_BIPOLAR,
+]
 
-# Unused: internal trigger signal coupling (<trigger root>:COUP), the GUI
-# values DC/AC are sent as they are
-# TRIGGER_COUPLINGS = ["DC", "AC"]
+# Initiate layer mode. EPOCH is not a SCPI token: Epoch mode is
+# :INIT:CONT OFF plus :INIT:EPOC:STAR and :INIT:EPOC:STOP
+INITIATE_CONTINUOUS_ON = "ON"
+INITIATE_CONTINUOUS_OFF = "OFF"
+INITIATE_EPOCH = "EPOCH"
+
+# :INIT:EPOC:STAR/:STOP date format, <yyyy,mm,dd,hh,mm,ss>
+EPOCH_FORMAT = "%Y,%m,%d,%H,%M,%S"
+# An Epoch cannot be cleared (NONE is -102, *RST and :TRIG:RESet keep it):
+# dates in the past are ignored, so this one disables it
+EPOCH_DISABLED = datetime(2000, 1, 1)
+
+# Internal trigger signal coupling (<trigger root>:COUP) and slope
+# (<trigger root>:SLOPe): the GUI values are sent as they are, these lists
+# are used only to read them back
+TRIGGER_COUPLINGS = ["DC", "AC"]
+TRIGGER_SLOPES = ["POS", "NEG"]

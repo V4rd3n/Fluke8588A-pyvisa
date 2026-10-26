@@ -1,8 +1,12 @@
 import pyvisa
 import logging
+from datetime import datetime
 # Unused: only the commented digit resolution helpers need it
 # import math
 from Fluke8588A.instrument import scpi
+
+logger = logging.getLogger(__name__)
+
 #CLASSE DEL DMM Fluke 8588A
 class Fluke8588A():
 	"""
@@ -25,6 +29,10 @@ class Fluke8588A():
 	set_digitize(measurement, range_val, coupling, filter_val, aperture) : set digitize voltage/current mode, returns the values read back
 	select_function(root) : selects the function of root if not already active
 	check_errors() : empties the error queue, raises if it held errors
+	get_trigger_layer(root, holdoff) / get_trigger_external(root) / get_trigger_signal(root) : read back the trigger settings
+
+	The single-value setters (setX) only write: the set_<f> methods and the
+	InstrumentController read back once, after all writes
 	setRange(root, value) / getRange(root) : set/get measurement range
 	setResolutionValue(root, value) / getResolutionValue(root) : set/get absolute resolution
 	setTime(root, value) / getTime(root) : set/get aperture value in seconds
@@ -34,14 +42,14 @@ class Fluke8588A():
 	"""
 
 	def __init__(self, address):
-		logging.info(__name__ + ' : Initializing instrument Fluke 8588A')
+		logger.info('Initializing instrument Fluke 8588A')
 		self.is_connected = False
 		self.__connect(address)
 		self._instr.timeout = scpi.TIMEOUT_MS
 		self._line_frequency = None
 		self.reset()
 		idn_string = self.identify()
-		logging.info("Instrument %s successfully initialized." % idn_string)
+		logger.info("Instrument %s successfully initialized.", idn_string.strip())
 
 	def __connect(self, address): #private to be only used by init
 		self._rm = pyvisa.ResourceManager()
@@ -95,6 +103,10 @@ class Fluke8588A():
 		Output:
 			text
 		'''  
+		# With INIT:CONT ON (also set by an Epoch) READ? fails with -214
+		# "Trigger deadlock": FETCh? returns the latest reading instead
+		if self.getContinuos(scpi.ROOT_INITIATE).strip() == "1":
+			return self.query(":FETCh?")
 		return self.query(":READ?")
 						
 	def reset(self):
@@ -514,7 +526,7 @@ class Fluke8588A():
 			root  : SCPI root string e.g. ":VOLT:DC"
 			value : "AUTO", "FAST", or "MAN"
 		Output:
-			string, set value: "AUTO", "FAST", or "MAN"
+			none, the caller reads back after all writes
 		'''
 		if value not in scpi.VALID_APERTURE_MODES:
 			raise ValueError(
@@ -522,11 +534,8 @@ class Fluke8588A():
 				f"Expected one of {scpi.VALID_APERTURE_MODES}"
 			)
 		cmd = root + ":APER:MODE " + str(value)
-		logging.info(f"[APERTURE] Sending: {cmd}")
+		logger.debug(f"[APERTURE] Sending: {cmd}")
 		self.write(cmd)
-		result = self.getApertureMode(root)
-		logging.info(f"[APERTURE] Query result: {result}")
-		return result
 	
 	def getTime(self, root):
 		'''
@@ -544,13 +553,12 @@ class Fluke8588A():
 			root  : SCPI root string e.g. ":VOLT:DC"
 			value : aperture value in seconds
 		Output:
-			float, accepted aperture value in seconds
+			none, the caller reads back after all writes
 		'''
 		aperture = float(value)
 		if aperture <= 0:
 			raise ValueError(f"Aperture value must be positive, got {value}")
 		self.write(root + ":APER " + str(aperture))
-		return self.getTime(root)
 
 	def getImp(self, root):
 		'''
@@ -568,7 +576,7 @@ class Fluke8588A():
 			root  : SCPI root string e.g. ":VOLT:DC"
 			value : "AUTO", "1M", or "10M"
 		Output:
-			string, set value: "AUTO", "1M", or "10M"
+			none, the caller reads back after all writes
 		'''
 		if value not in scpi.VALID_DCV_IMPEDANCES:
 			raise ValueError(
@@ -576,7 +584,6 @@ class Fluke8588A():
 				f"Expected one of {scpi.VALID_DCV_IMPEDANCES}"
 			)
 		self.write(root + ":IMP " + str(value))
-		return self.getImp(root)
 	
 
 	def getRangeMode(self, root):
@@ -601,7 +608,7 @@ class Fluke8588A():
 			root  : SCPI root string e.g. ":VOLT:DC"
 			value : "AUTO" or "MAN"
 		Output:
-			string, set value: "AUTO" or "MAN"
+			none, the caller reads back after all writes
 		'''
 		if value == scpi.RANGE_MODE_AUTO_STR:
 			converted_value = scpi.RANGE_MODE_AUTO
@@ -614,7 +621,6 @@ class Fluke8588A():
 				f"or '{scpi.RANGE_MODE_MAN_STR}'"
 			)
 		self.write(root + ":RANG:AUTO " + str(converted_value))
-		return self.getRangeMode(root)
 	
 
 	def getRange(self, root):
@@ -632,10 +638,9 @@ class Fluke8588A():
 		Input:
 			root, desired value
 		Output:
-			string, set value
+			none, the caller reads back after all writes
 		'''
 		self.write(root+":RANG "+str(value))
-		return self.getRange(root)
 	
 	"""
 	Legacy digit resolution (10**-digits): replaced by setResolutionValue /
@@ -687,7 +692,6 @@ class Fluke8588A():
 		if resolution_value <= 0:
 			raise ValueError(f"Resolution must be positive, got {value}")
 		self.write(root + ":RES " + str(resolution_value))
-		return self.getResolutionValue(root)
 
 	def getResolutionValue(self, root):
 		"""Get the absolute resolution value for given root."""
@@ -720,28 +724,24 @@ class Fluke8588A():
 
 	def setBlimit(self, root, value:bool):
 		self.write(f"{root}:COUNter:BLIMit {int(value)}")
-		return self.getBlimit(root)
 
 	def getCounterCoupling(self, root):
 		return self.query(f"{root}:COUNter:COUPling?").strip()
 
 	def setCounterCoupling(self, root, value):
 		self.write(f"{root}:COUNter:COUPling {value}")
-		return self.getCounterCoupling(root)
 
 	def getGateMode(self, root):
 		return bool(int(float(self.query(f"{root}:COUNter:GATE:AUTO?"))))
 
 	def setGateMode(self, root, value:bool):
 		self.write(f"{root}:COUNter:GATE:AUTO {int(value)}")
-		return self.getGateMode(root)
 
 	def getFilter(self, root):
 		return bool(int(self.query(f"{root}:FILTer?").strip()))
 
 	def setFilter(self, root, value:bool):
 		self.write(f"{root}:FILTer {int(value)}")
-		return self.getFilter(root)
 
 	# DIGITIZE, root scpi.ROOT_DIGITIZE
 	def getDigitizeFilter(self, root):
@@ -749,7 +749,6 @@ class Fluke8588A():
 
 	def setDigitizeFilter(self, root, value):
 		self.write(f"{root}:FILTer {value}")
-		return self.getDigitizeFilter(root)
 
 	def setDigitizeAperture(self, root, value):
 		# Not setTime: 0 is a valid digitize aperture
@@ -760,7 +759,6 @@ class Fluke8588A():
 				f"and {scpi.DIGI_APERTURE_MAX} s, got {value}"
 			)
 		self.write(f"{root}:APERture {aperture}")
-		return self.getTime(root)
 
 	def getRmsFilter(self, root):
 		'''
@@ -780,30 +778,26 @@ class Fluke8588A():
 			root  : SCPI root string e.g. ":VOLT:AC"
 			value : filter in hertz (0.1, 1, 10, 40, 100, 1000)
 		Output:
-			float, set value in hertz
+			none, the caller reads back after all writes
 		'''
 		self.write(f"{root}:FILTer {float(value)}")
-		return self.getRmsFilter(root)
 
 	def getCounterGate(self, root):
 		return float(self.query(f"{root}:COUNter:GATE?"))
 
 	def setCounterGate(self, root, value):
 		self.write(f"{root}:COUNter:GATE {value}")
-		return self.getCounterGate(root)
 
 	def getSecondary(self, root):
 		return self.query(f"{root}:SECondary?").strip()
 	def setSecondary(self, root, value:str):
 		self.write(f"{root}:SECondary {value}")
-		return self.getSecondary(root)
 
 	def getSecondaryMethod(self, root):
 		return self.query(f"{root}:SECondary:METHod?").strip()
 
 	def setSecondaryMethod(self, root, value:str):
 		self.write(f"{root}:SECondary:METHod {value}")
-		return self.getSecondaryMethod(root)
 
 	def getShunt(self, root, list_index=None):
 		if list_index is not None:
@@ -852,69 +846,62 @@ class Fluke8588A():
 
 	def setBwidth(self, root, value):
 		self.write(f"{root}:BWIDth {value}")
-		return self.getBwidth(root)
 
 	def getCouplingSignal(self, root):
 		return self.query(f"{root}:COUPling:SIGNal?").strip()
 
 	def setCouplingSignal(self, root, value):
 		self.write(f"{root}:COUPling:SIGNal {value}")
-		return self.getCouplingSignal(root)
 	
 	#IMMEDIATE
 	def getContinuos(self, root):
 		return self.query(f"{root}:CONT?")
 	def setContinuos(self, root, state:bool):
-			return self.write(f"{root}:CONT {state}")
+		self.write(f"{root}:CONT {int(state)}")
 
+	# Epoch dates are datetime objects, sent as <yyyy,mm,dd,hh,mm,ss>
 	def getEpochStart(self, root):
 		return self.query(f"{root}:EPOC:STAR?")
-	def setEpochStart(self, root, date:str):
-		return self.write(f"{root}:EPOC:STAR {date}")
+	def setEpochStart(self, root, date:datetime):
+		self.write(f"{root}:EPOC:STAR {date.strftime(scpi.EPOCH_FORMAT)}")
 
 	def getEpochStop(self, root):
 		return self.query(f"{root}:EPOC:STOP?")
-	def setEpochStop(self, root, date:str):
-		return self.write(f"{root}:EPOC:STOP {date}")
+	def setEpochStop(self, root, date:datetime):
+		self.write(f"{root}:EPOC:STOP {date.strftime(scpi.EPOCH_FORMAT)}")
 
 	#ARM1 ARM2
 	def getCount(self, root):
 		return self.query(f"{root}:COUNt?")
 	def setCount(self, root, value):
 		self.write(f"{root}:COUNt {value}")
-		return self.getCount(root)
 
 	# Also the ACI signal path coupling (:CURR:AC:COUP)
 	def getCoupling(self, root):
 		return self.query(f"{root}:COUP?").strip()
 	def setCoupling(self, root, coupling:str):
 		self.write(f"{root}:COUP {coupling}")
-		return self.getCoupling(root)
 	
 	def getDelay(self, root):
 		return self.query(f"{root}:DELay?")
 	def setDelay(self, root, value):
 		self.write(f"{root}:DELay {value}")
-		return self.getDelay(root)
 	
 	def getDelayMode(self, root):
 		return self.query(f"{root}:DELay:AUTO?")
 	def setDelayMode(self, root, value:bool):
 		state = "ON" if value else "OFF"
 		self.write(f"{root}:DELay:AUTO {state}")
-		return self.getDelayMode(root)
 	
 	def getEcount(self, root):
 		return self.query(f"{root}:ECOunt?")
 	def setEcount(self, root, value):
 		self.write(f"{root}:ECOunt {value}")
-		return self.getEcount(root)
 
 	def getExternal(self, root):
 		return self.query(f"{root}:EXTernal?")
 	def setExternal(self, root, value):
 		self.write(f"{root}:EXTernal {value}")
-		return self.getExternal(root)
 
 	def setImmediate(self, root):
 		self.write(f"{root}:IMMediate")
@@ -923,7 +910,6 @@ class Fluke8588A():
 		return self.query(f"{root}:LEVel?")
 	def setLevel(self, root, value):
 		self.write(f"{root}:LEVel {value}")
-		return self.getLevel(root)
 
 	def resetTrigger(self, root):
 		self.write(f"{root}:RESet")
@@ -935,19 +921,16 @@ class Fluke8588A():
 		return self.query(f"{root}:SLOPe?")
 	def setSlope(self, root, value):
 		self.write(f"{root}:SLOPe {value}")
-		return self.getSlope(root)
 
 	def getSource(self, root):
 		return self.query(f"{root}:SOURce?")
 	def setSource(self, root, value):
 		self.write(f"{root}:SOURce {value}")
-		return self.getSource(root)
 
 	def getTimer(self, root):
 		return self.query(f"{root}:TIMer?")
 	def setTimer(self, root, value):
 		self.write(f"{root}:TIMer {value}")
-		return self.getTimer(root)
 
 	# TRIGGER 
 	def getHoldoffAuto(self, root):
@@ -955,13 +938,57 @@ class Fluke8588A():
 	def setHoldoffAuto(self, root, value: bool):
 		state = "ON" if value else "OFF"
 		self.write(f"{root}:HOLDoff:AUTO {state}")
-		return self.getHoldoffAuto(root)
 
 	def getHoldoff(self, root):
 		return self.query(f"{root}:HOLDoff?")
 	def setHoldoff(self, root, value):
 		self.write(f"{root}:HOLDoff {value}")
-		return self.getHoldoff(root)
+
+	# Trigger readback: the instrument answers with the short form of the
+	# token (e.g. "IMM", "NEG,TTL"), mapped back to the scpi constant
+	def __match_token(self, answer, tokens):
+		value = answer.strip().strip('"').replace(" ", "").upper()
+		for token in tokens:
+			short_form = "".join(char for char in token if not char.islower())
+			if value in (token.upper(), short_form.upper()):
+				return token
+		raise ValueError(f"Instrument returned an unsupported value: {answer!r}")
+
+	def get_trigger_layer(self, root, holdoff=False):
+		'''
+		Reads back one event layer
+		Input:
+			root    : scpi.ROOT_ARM2, scpi.ROOT_ARM1 or scpi.ROOT_TRIGGER
+			holdoff : True to read HOLDoff too, it exists only on the TRIG layer
+		Output:
+			dict, source as a scpi.TRIGGER_SOURCE_* constant, numbers parsed
+		'''
+		layer = {
+			"source": self.__match_token(self.getSource(root), scpi.TRIGGER_SOURCES),
+			"count": int(float(self.getCount(root))),
+			"ecount": int(float(self.getEcount(root))),
+			"delay": float(self.getDelay(root)),
+			"delay_auto": bool(int(float(self.getDelayMode(root)))),
+			"timer": float(self.getTimer(root)),
+		}
+		if holdoff:
+			layer["holdoff"] = float(self.getHoldoff(root))
+			# The manual gives HOLDoff:AUTO? as 1 = ON, 2 = OFF, the instrument answers 0 for OFF
+			layer["holdoff_auto"] = int(float(self.getHoldoffAuto(root))) == 1
+		return layer
+
+	def get_trigger_external(self, root):
+		'''Reads back the external edge as a scpi.TRIGGER_EXT_* constant'''
+		return self.__match_token(self.getExternal(root), scpi.TRIGGER_EXTERNAL_EDGES)
+
+	def get_trigger_signal(self, root):
+		'''Reads back the internal (signal) source settings of one layer'''
+		return {
+			"coupling": self.__match_token(self.getCoupling(root), scpi.TRIGGER_COUPLINGS),
+			"slope": self.__match_token(self.getSlope(root), scpi.TRIGGER_SLOPES),
+			"level": int(round(float(self.getLevel(root)))),
+			"filter": self.getFilter(root),
+		}
 
 	'''
 	Unused duplicate of resetTrigger (same <root>:RESet command).
@@ -997,21 +1024,19 @@ class Fluke8588A():
 	def setWireMode(self, root, value):
 		'''
 		input: (root, NORM || TRUE), TRUE only with :FRES;
-		Output:  NORM || TRUE ;
-		Sets the Ohms mode, returns the mode that has been set in machine.
+		Output:  none ;
+		Sets the Ohms mode, the caller reads back after all writes.
 		'''
 		self.write(f"{root}:MODE {value}")
-		return self.getWireMode(root)
 
 	def getLowCurrentMode(self, root):
 		return bool(int(self.query(f"{root}:LOWI?").strip()))
 	def setLowCurrentMode(self, root, value:bool):
 		'''
 		input: (root, bool);
-		Output:  bool, set value;
+		Output:  none;
 		Sets the Low current mode ON or OFF, the instrument keeps it per
 		function and per mode (NORM/TRUE)
 		'''
 		self.write(f"{root}:LOWI {int(value)}")
-		return self.getLowCurrentMode(root)
 	
