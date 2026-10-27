@@ -413,7 +413,7 @@
                </layout>
               </item>
               <item>
-               <widget class="QDoubleSpinBox" name="del_doublespinbox">
+               <widget class="SciDoubleSpinBox" name="del_doublespinbox">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -547,7 +547,7 @@
                </widget>
               </item>
               <item>
-               <widget class="QDoubleSpinBox" name="tim_doublespinbox_3"/>
+               <widget class="SciDoubleSpinBox" name="tim_doublespinbox_3"/>
               </item>
              </layout>
             </item>
@@ -673,7 +673,7 @@
                </layout>
               </item>
               <item>
-               <widget class="QDoubleSpinBox" name="del_doublespinbox_3">
+               <widget class="SciDoubleSpinBox" name="del_doublespinbox_3">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -805,7 +805,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QDoubleSpinBox" name="tim_doublespinbox_2"/>
+             <widget class="SciDoubleSpinBox" name="tim_doublespinbox_2"/>
             </item>
            </layout>
           </item>
@@ -935,7 +935,7 @@
                </layout>
               </item>
               <item>
-               <widget class="QDoubleSpinBox" name="del_doublespinbox_2">
+               <widget class="SciDoubleSpinBox" name="del_doublespinbox_2">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -1031,7 +1031,7 @@
                </layout>
               </item>
               <item>
-               <widget class="QDoubleSpinBox" name="hold_doublespinbox_2">
+               <widget class="SciDoubleSpinBox" name="hold_doublespinbox_2">
                 <property name="enabled">
                  <bool>false</bool>
                 </property>
@@ -1166,7 +1166,7 @@
              </widget>
             </item>
             <item>
-             <widget class="QDoubleSpinBox" name="tim_doublespinbox"/>
+             <widget class="SciDoubleSpinBox" name="tim_doublespinbox"/>
             </item>
            </layout>
           </item>
@@ -1223,6 +1223,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>SciDoubleSpinBox</class>
+   <extends>QDoubleSpinBox</extends>
+   <header>Fluke8588A.views.sci_spinbox</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
  <buttongroups>

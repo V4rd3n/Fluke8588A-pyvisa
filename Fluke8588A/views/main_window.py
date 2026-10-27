@@ -154,13 +154,14 @@ class MainWindow(QMainWindow):
 		# Decimals first: the range is rounded to the current decimals
 		self.digi_aper_spinbox.setDecimals(gui_values.DIGI_APERTURE_DECIMALS)
 		self.digi_aper_spinbox.setRange(*gui_values.DIGI_APERTURE_RANGE)
-		self.digi_aper_spinbox.setSingleStep(gui_values.DIGI_APERTURE_STEP)
+		self.digi_aper_spinbox.setResolution(gui_values.DIGI_APERTURE_RESOLUTION)
 		for time_spinbox, plc_spinbox in (
 			(self.dcv_time_spinbox, self.dcv_plc_spinbox),
 			(self.dci_time_spinbox, self.dci_plc_spinbox),
 			(self.ohms_time_radiobutton, self.ohms_plc_radiobutton),
 		):
 			time_spinbox.setDecimals(gui_values.APERTURE_TIME_DECIMALS)
+			time_spinbox.setResolution(gui_values.APERTURE_TIME_RESOLUTION)
 			plc_spinbox.setDecimals(gui_values.APERTURE_PLC_DECIMALS)
 		self._set_aperture_controls_enabled("DCV", self.dcv_man_radiobutton.isChecked())
 		self._set_aperture_controls_enabled("DCI", self.dci_man_radiobutton.isChecked())
@@ -517,18 +518,20 @@ class MainWindow(QMainWindow):
 
 	def set_aperture_ranges(
 		self,
+		function: str,
 		min_time: float,
 		max_time: float,
 		min_nplc: float,
 		max_nplc: float,
 	) -> None:
-		for time_spinbox, plc_spinbox in (
-			(self.dcv_time_spinbox, self.dcv_plc_spinbox),
-			(self.dci_time_spinbox, self.dci_plc_spinbox),
-			(self.ohms_time_radiobutton, self.ohms_plc_radiobutton),
-		):
-			time_spinbox.setRange(min_time, max_time)
-			plc_spinbox.setRange(min_nplc, max_nplc)
+		spinboxes = {
+			"DCV": (self.dcv_time_spinbox, self.dcv_plc_spinbox),
+			"DCI": (self.dci_time_spinbox, self.dci_plc_spinbox),
+			"OHMS": (self.ohms_time_radiobutton, self.ohms_plc_radiobutton),
+		}
+		time_spinbox, plc_spinbox = spinboxes[function]
+		time_spinbox.setRange(min_time, max_time)
+		plc_spinbox.setRange(min_nplc, max_nplc)
 
 	def set_aperture_values(self, function: str, time: float, plc: float):
 		spinboxes = {

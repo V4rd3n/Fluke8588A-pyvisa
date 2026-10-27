@@ -26,7 +26,9 @@ AC_RESOLUTION_DIGITS = (4, 7)
 OHMS_RESOLUTION_DIGITS = (4, 8)
 
 # Aperture spin boxes; ranges are set at connection from the line frequency
-APERTURE_TIME_DECIMALS = 6  # the minimum time, NPLC_MIN / line frequency, is ~2e-5 s
+APERTURE_TIME_DECIMALS = 7  # 200 ns resolution, 1e-7 is rounded up to 2e-7 on the instrument
+# Time aperture from 0 to 10 s in 200 ns increments (operator manual)
+APERTURE_TIME_RESOLUTION = ((10.0, 2e-7),)
 APERTURE_PLC_DECIMALS = 3
 # APERTURE_STEP = 0.01  # unused, the spin box step comes from the .ui
 
@@ -47,8 +49,9 @@ AC_PATH_COUPLING_AC = "AC"
 AC_PATH_COUPLING_DC = "DC"
 AC_BANDWIDTH_LIMIT_OFF = "OFF"
 AC_BANDWIDTH_LIMIT_ON = "ON"
+AC_SECREAD_OFF = "OFF"
 AC_SECREAD_PK2PK = "Pk to Pk"
-AC_SECONDARY_READING = ["OFF", "Frequency", "Period", AC_SECREAD_PK2PK, "Crest factor", "Positive peak", "Negative peak"]
+AC_SECONDARY_READING = [AC_SECREAD_OFF, "Frequency", "Period", AC_SECREAD_PK2PK, "Crest factor", "Positive peak", "Negative peak"]
 AC_COUNTER_GATE = [AUTO, "1ms", "10ms", "100ms", "1s"]
 AC_PEAK_TO_PEAK = ["Measured", "Sine", "Square", "Triangle", "Truncated sine"]
 
@@ -70,11 +73,12 @@ DIGI_V_DEFAULT_RANGE = "1 kV"
 DIGI_I_DEFAULT_RANGE = "30 A"
 DIGI_DEFAULT_COUPLING_IMPEDANCE = "DC, Auto"
 DIGI_FILTER = ["OFF", "100 kHz", "3 MHz"]
-# Aperture spin box in seconds: 200 ns steps up to 1 ms, the instrument rounds
-# a value in between up to the next step
+# Aperture spin box in seconds: 200 ns increments up to 1 ms and 100 us from
+# 1 ms to 3 ms (operator manual, Digitize); the instrument rounds a value in
+# between up to the next step
 DIGI_APERTURE_RANGE = (0.0, 3e-3)
 DIGI_APERTURE_DECIMALS = 7
-DIGI_APERTURE_STEP = 2e-7
+DIGI_APERTURE_RESOLUTION = ((1e-3, 2e-7), (3e-3, 1e-4))
 
 # Base trigger
 TRIGGER_SOURCE_EXTERNAL = "External"
@@ -94,8 +98,9 @@ TRIGGER_SLOPE_NEG = "NEG"
 # -222. COUNt is 10 000 000 on the TRIG layer too (the manual says 1 000 000)
 TRIGGER_COUNT_RANGE = (1, 10_000_000)
 TRIGGER_ECOUNT_RANGE = (1, 10_000_000)
-# DELay: the smallest non zero delay is 30 ns, lower values are rounded up
-TRIGGER_DELAY_RANGE = (0.0, 1_000_000.0)
+# DELay: the smallest non zero delay is 30 ns, lower values are rounded up.
+# 4 000 000 s on every layer as in the manual (4.1e6 is -222)
+TRIGGER_DELAY_RANGE = (0.0, 4_000_000.0)
 TRIGGER_HOLDOFF_RANGE = (0.0, 100.0)
 # TIMer: lower values are rounded up to 20 ns
 TRIGGER_TIMER_RANGE = (2e-8, 1_000_000.0)
@@ -105,6 +110,8 @@ TRIGGER_LEVEL_RANGE = (-200, 200)
 TRIGGER_DELAY_DECIMALS = 8
 TRIGGER_HOLDOFF_DECIMALS = 8
 TRIGGER_TIMER_DECIMALS = 8
+# DELay resolution is 10 ns up to 40 s (operator manual), nothing stated above it
+TRIGGER_DELAY_RESOLUTION = ((40.0, 1e-8),)
 
 # Advanced trigger
 TRIGGER_INITIATE_CONTINUOUS_ON = "Continuous ON"

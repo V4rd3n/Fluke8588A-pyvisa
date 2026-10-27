@@ -1,5 +1,6 @@
 import pyvisa
 import logging
+import time
 from datetime import datetime
 # Unused: only the commented digit resolution helpers need it
 # import math
@@ -16,7 +17,8 @@ class Fluke8588A():
 	identify() : returns read value of *IDN? query
 	write(text) : writes command to instrument
 	query(text) : write and read in a single command
-	read() : outputs measurement with ":READ?" query
+	read() : outputs measurement with ":READ?" query (FNOW? with INIT:CONT ON)
+	discard_readings() : empties the reading memory with INIT:CONT ON
 	reset() : resets instrument to power on settings
 	close() : close the connection
 	
@@ -104,10 +106,71 @@ class Fluke8588A():
 			text
 		'''  
 		# With INIT:CONT ON (also set by an Epoch) READ? fails with -214
-		# "Trigger deadlock": FETCh? returns the latest reading instead
-		if self.getContinuos(scpi.ROOT_INITIATE).strip() == "1":
-			return self.query(":FETCh?")
+		# "Trigger deadlock" and FETCh? keeps answering the first reading of
+		# the record (-230 "Data corrupt or stale"): FNOW? takes the new ones
+		if self._is_continuous():
+			return self._read_continuous()
 		return self.query(":READ?")
+
+	def read_with_secondary(self):
+		'''
+		Read function with the secondary reading (ACV/ACI frequency, period, peaks...)
+		Input:
+			none
+		Output:
+			(primary text, secondary text), the secondary readings are as many
+			as the primary ones (FETCh? 2 of the record taken by READ?).
+			Secondary text is None with INIT:CONT ON: FNOW? returns the primary
+			readings only and FETCh? 2 the first reading of the record
+		'''
+		if self._is_continuous():
+			return self._read_continuous(), None
+		primary = self.query(":READ?")
+		return primary, self.query(":FETCh? 2")
+
+	def _is_continuous(self):
+		return self.getContinuos(scpi.ROOT_INITIATE).strip() == "1"
+
+	def _fetch_new_readings(self):
+		'''
+		Readings taken since the previous FNOW?, oldest first, removed from
+		the memory. FNOW? never waits: it answers the available ones followed
+		by 9.91E+37 (only 9.91E+37 when there are none)
+		'''
+		answer = self.query(f":FNOW? {scpi.FNOW_MAX_READINGS}")
+		return [item for item in answer.strip().split(",") if float(item) < scpi.INVALID_READING]
+
+	def _read_continuous(self):
+		'''
+		Read function with INIT:CONT ON
+		Input:
+			none
+		Output:
+			text, the readings taken since the previous call (comma separated,
+			oldest first), waiting for at least one up to the VISA timeout
+		'''
+		deadline = time.monotonic() + self._instr.timeout / 1000
+		while True:
+			readings = self._fetch_new_readings()
+			if readings:
+				return ",".join(readings)
+			if time.monotonic() > deadline:
+				raise TimeoutError("No new reading in continuous mode")
+			time.sleep(scpi.FNOW_POLL_S)
+
+	def discard_readings(self):
+		'''
+		Empties the reading memory with INIT:CONT ON, so that the next read()
+		returns only readings taken from now on (ABORt does not empty it)
+		Input:
+			none
+		Output:
+			none
+		'''
+		if not self._is_continuous():
+			return
+		while self._fetch_new_readings():
+			pass
 						
 	def reset(self):
 		'''
@@ -118,7 +181,9 @@ class Fluke8588A():
 			none
 		'''        
 		self.write("*RST")
-	
+		# Returns when the reset is complete (probed: ~0.03 s, also after power on)
+		self.query("*OPC?")
+
 	def close(self):
 		'''
 		Closes connection with machine
@@ -556,8 +621,10 @@ class Fluke8588A():
 			none, the caller reads back after all writes
 		'''
 		aperture = float(value)
-		if aperture <= 0:
-			raise ValueError(f"Aperture value must be positive, got {value}")
+		# 0 s is valid on DCV/DCI; the per-function minimum (100 us on ohms) is
+		# checked by the instrument, -222
+		if aperture < 0:
+			raise ValueError(f"Aperture value must not be negative, got {value}")
 		self.write(root + ":APER " + str(aperture))
 
 	def getImp(self, root):

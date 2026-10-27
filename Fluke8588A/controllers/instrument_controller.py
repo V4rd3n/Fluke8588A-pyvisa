@@ -118,6 +118,24 @@ class InstrumentController:
             raise RuntimeError("Cannot read: not connected to instrument")
         
         return self._instrument.read()
+
+    def read_with_secondary(self) -> tuple[str, str | None]:
+        """
+        Read primary and secondary measurement (same number of readings).
+
+        Returns:
+            tuple: primary text, secondary text (None in continuous mode)
+        """
+        if not self.is_connected():
+            raise RuntimeError("Cannot read: not connected to instrument")
+
+        return self._instrument.read_with_secondary()
+
+    def discard_readings(self) -> None:
+        """Forget the readings taken so far in continuous mode (INIT:CONT ON)."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot discard readings: not connected to instrument")
+        self._instrument.discard_readings()
     
     def identify(self) -> str:
         """

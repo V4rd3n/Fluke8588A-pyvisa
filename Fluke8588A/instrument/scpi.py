@@ -13,13 +13,29 @@ from datetime import datetime
 TIMEOUT_MS = 10_000
 SCAN_TIMEOUT_MS = 2_000
 
+# FETCh?/READ? answer 9.91E+37 when there is no valid value to return
+INVALID_READING = 9.91e37
+# Overload reading, ±9.90E+37 (probed, not in the manuals): below INVALID_READING
+OVERLOAD_READING = 9.9e37
+
+# FNOW? with INIT:CONT ON: readings per query (more are taken by the next
+# one) and wait between two queries finding no new reading. FNOW? without
+# a count gets no answer at all
+FNOW_MAX_READINGS = 100_000
+FNOW_POLL_S = 0.02
+
 # Upper bound on :SYST:ERR? reads when emptying the error queue
 ERROR_QUEUE_MAX_READS = 20
 
-# Aperture limits: the maximum is a time, so the maximum NPLC depends on the
-# line frequency (APERTURE_TIME_MAX * frequency, e.g. 500 at 50 Hz, 600 at 60 Hz)
+# Aperture limits, checked on the instrument (APER?/NPLC? MIN|MAX, out of range
+# is -222). The maximum is a time, so the maximum NPLC depends on the line
+# frequency (APERTURE_TIME_MAX * frequency, e.g. 500 at 50 Hz, 600 at 60 Hz).
+# DCV and DCI go down to 0 s / 0 PLC (the operator manual says 0.01 PLC from the
+# front panel). Ohms stops at 100 us in every mode and range: 0.005 PLC at 50 Hz,
+# taken as a time since 60 Hz was not probed
 APERTURE_TIME_MAX = 10.0  # seconds
-NPLC_MIN = 0.001
+APERTURE_TIME_MIN = 0.0
+OHMS_APERTURE_TIME_MIN = 1e-4
 
 # Function roots
 ROOT_DCV = ":VOLT:DC"

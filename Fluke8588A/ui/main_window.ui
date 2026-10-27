@@ -297,7 +297,7 @@
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="dcv_time_spinbox"/>
+                   <widget class="SciDoubleSpinBox" name="dcv_time_spinbox"/>
                   </item>
                  </layout>
                 </item>
@@ -717,7 +717,7 @@
                    </widget>
                   </item>
                   <item>
-                   <widget class="QDoubleSpinBox" name="dci_time_spinbox"/>
+                   <widget class="SciDoubleSpinBox" name="dci_time_spinbox"/>
                   </item>
                  </layout>
                 </item>
@@ -1180,7 +1180,7 @@
                       </widget>
                      </item>
                      <item>
-                      <widget class="QDoubleSpinBox" name="ohms_time_radiobutton"/>
+                      <widget class="SciDoubleSpinBox" name="ohms_time_radiobutton"/>
                      </item>
                     </layout>
                    </item>
@@ -1389,7 +1389,7 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QDoubleSpinBox" name="digi_aper_spinbox"/>
+                 <widget class="SciDoubleSpinBox" name="digi_aper_spinbox"/>
                 </item>
                </layout>
               </item>
@@ -1454,6 +1454,13 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>SciDoubleSpinBox</class>
+   <extends>QDoubleSpinBox</extends>
+   <header>Fluke8588A.views.sci_spinbox</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
  <buttongroups>

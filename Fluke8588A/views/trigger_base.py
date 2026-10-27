@@ -44,6 +44,7 @@ class TriggerBaseWindow(QWidget):
         self.hold_doublespinbox.setDecimals(gui_values.TRIGGER_HOLDOFF_DECIMALS)
         self.tim_doublespinbox.setDecimals(gui_values.TRIGGER_TIMER_DECIMALS)
         self.del_doublespinbox.setRange(*gui_values.TRIGGER_DELAY_RANGE)
+        self.del_doublespinbox.setResolution(gui_values.TRIGGER_DELAY_RESOLUTION)
         self.hold_doublespinbox.setRange(*gui_values.TRIGGER_HOLDOFF_RANGE)
         self.tim_doublespinbox.setRange(*gui_values.TRIGGER_TIMER_RANGE)
         self.tlevel_spinbox.setRange(*gui_values.TRIGGER_LEVEL_RANGE)

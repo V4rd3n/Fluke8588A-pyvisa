@@ -17,10 +17,10 @@ from Fluke8588A.data.settings import (
 	TriggerLayerSettings,
 	TriggerSignalSettings,
 )
-# Unused: only the commented continuous reading handlers need it
-# from Fluke8588A.controllers.measurement_controller import ReadingThread
+from Fluke8588A.controllers.acquisition_controller import AcquisitionController
 from Fluke8588A.services.translator import Translator
 from Fluke8588A.services import translation_tables as tables
+from Fluke8588A.services import units
 from PyQt6.QtWidgets import QApplication
 from dataclasses import replace
 import logging
@@ -55,6 +55,8 @@ class AppController:
 		)
 		self._view.show()
 		self._instr_ctrl=InstrumentController()
+		self._acquisition = AcquisitionController(self._instr_ctrl, self._graph_window)
+		self._acquisition.status_changed.connect(self._view.set_status)
 		self._line_frequency = None
 		self._reading_thread= None
 		self._translator = Translator()
@@ -122,9 +124,10 @@ class AppController:
 	def _on_main_window_closed(self):
 		self._trigger_base_pop_up.close()
 		self._trigger_advanced_pop_up.close()
-		self._graph_window.close()
+		self._acquisition.close()
 
 	def _on_application_about_to_quit(self):
+		self._acquisition.stop()
 		if not self._instr_ctrl.is_connected():
 			return
 
@@ -240,6 +243,7 @@ class AppController:
 		logger.debug(f"<<< _on_trigger_base_press")
 
 	def _on_trigger_base_set(self):
+		self._acquisition.stop()
 		settings = self._trigger_base_pop_up.get_settings()
 		try:
 			actual = self._instr_ctrl.set_trigger_base(self._translate_trigger_base_settings(settings))
@@ -253,6 +257,7 @@ class AppController:
 			self._view.set_status(f"Base trigger error: {error}")
 
 	def _on_trigger_base_reset(self):
+		self._acquisition.stop()
 		# GUI state changes only once the instrument has accepted the reset
 		base = defaults.trigger_base_settings()
 		# :TRIG:RESet resets the ARM layers too, but not INIT:CONT
@@ -302,6 +307,7 @@ class AppController:
 		logger.debug(f"<<< _on_trigger_advanced_press")
 
 	def _on_trigger_advanced_set(self):
+		self._acquisition.stop()
 		settings = self._trigger_advanced_pop_up.get_settings()
 		try:
 			actual = self._instr_ctrl.set_trigger_advanced(self._translate_trigger_advanced_settings(settings))
@@ -315,6 +321,7 @@ class AppController:
 			self._view.set_status(f"Advanced trigger error: {error}")
 
 	def _on_trigger_advanced_reset(self):
+		self._acquisition.stop()
 		# GUI state changes only once the instrument has accepted the reset
 		advanced = defaults.trigger_advanced_settings()
 		try:
@@ -465,7 +472,7 @@ class AppController:
 	def calculate_plc(self, time: float) -> float:
 		if self._line_frequency is None:
 			raise RuntimeError("Cannot calculate NPLC: instrument is not connected")
-		return max(float(time) * self._line_frequency, scpi.NPLC_MIN)
+		return float(time) * self._line_frequency
 
 	def calculate_time(self, plc: float) -> float:
 		if self._line_frequency is None:
@@ -640,6 +647,7 @@ class AppController:
 		)
 
 	def _on_dcv_set(self):
+		self._acquisition.stop()
 		logger.debug(">>> _on_dcv_set")
 		try:
 			requested_settings = self._translate_dcv_settings(self._view.get_dcv_settings())
@@ -649,7 +657,8 @@ class AppController:
 			self._dcv_settings = self._translate_dcv_settings_to_gui(actual_settings)
 			self._show_dcv_settings()
 			self._view.set_status("DCV configured.")
-			self._graph_window.show_function("DCV")
+			self._acquisition.show_function("DCV")
+			self._acquisition.show_range_unit("Voltage", "V", self._dcv_settings)
 		except Exception as error:
 			self._view.set_status(f"DCV set error: {error}")
 			logger.debug(f"<<< _on_dcv_set (error={error})")
@@ -667,6 +676,7 @@ class AppController:
 			)
 
 	def _on_dci_set(self):
+		self._acquisition.stop()
 		logger.debug(">>> _on_dci_set")
 		try:
 			requested_settings = self._translate_dci_settings(self._view.get_dci_settings())
@@ -676,7 +686,8 @@ class AppController:
 			self._dci_settings = self._translate_dci_settings_to_gui(actual_settings)
 			self._show_dci_settings()
 			self._view.set_status("DCI configured.")
-			self._graph_window.show_function("DCI")
+			self._acquisition.show_function("DCI")
+			self._acquisition.show_range_unit("Current", "A", self._dci_settings)
 		except Exception as error:
 			self._view.set_status(f"DCI set error: {error}")
 			logger.debug(f"<<< _on_dci_set (error={error})")
@@ -694,6 +705,7 @@ class AppController:
 			)
 
 	def _on_acv_set(self):
+		self._acquisition.stop()
 		logger.debug(">>> _on_acv_set")
 		try:
 			requested_settings = self._translate_acv_settings(self._view.get_acv_settings())
@@ -704,7 +716,7 @@ class AppController:
 			# ACV has no aperture, nothing else to show
 			self._view.set_acv_settings(self._acv_settings)
 			self._view.set_status("ACV configured.")
-			self._graph_window.show_function("ACV")
+			self._show_ac_graph("ACV", "Voltage", "V", self._acv_settings)
 		except Exception as error:
 			self._view.set_status(f"ACV set error: {error}")
 			logger.debug(f"<<< _on_acv_set (error={error})")
@@ -712,6 +724,7 @@ class AppController:
 		logger.debug("<<< _on_acv_set")
 
 	def _on_aci_set(self):
+		self._acquisition.stop()
 		logger.debug(">>> _on_aci_set")
 		try:
 			requested_settings = self._translate_aci_settings(self._view.get_aci_settings())
@@ -722,14 +735,30 @@ class AppController:
 			# ACI has no aperture, nothing else to show
 			self._view.set_aci_settings(self._aci_settings)
 			self._view.set_status("ACI configured.")
-			self._graph_window.show_function("ACI")
+			self._show_ac_graph("ACI", "Current", "A", self._aci_settings)
 		except Exception as error:
 			self._view.set_status(f"ACI set error: {error}")
 			logger.debug(f"<<< _on_aci_set (error={error})")
 			return
 		logger.debug("<<< _on_aci_set")
 
+	def _show_ac_graph(self, function: str, quantity: str, base_unit: str, settings) -> None:
+		"""Graph of ACV/ACI: primary unit from the range, second graph for the secondary reading when ON."""
+		secondary_reading = self._ac_secondary_reading(settings)
+		self._acquisition.show_function(function, secondary_reading)
+		self._acquisition.show_range_unit(quantity, base_unit, settings)
+		if secondary_reading is not None:
+			self._acquisition.show_secondary_unit(*units.ac_secondary_unit(secondary_reading, base_unit))
+
+	@staticmethod
+	def _ac_secondary_reading(settings) -> str | None:
+		"""GUI name of the AC secondary reading, None when it is OFF."""
+		if settings.secondary_reading == gui_values.AC_SECREAD_OFF:
+			return None
+		return settings.secondary_reading
+
 	def _on_ohms_set(self):
+		self._acquisition.stop()
 		logger.debug(">>> _on_ohms_set")
 		try:
 			requested_settings = self._translate_ohms_settings(self._view.get_ohms_settings())
@@ -739,7 +768,8 @@ class AppController:
 			self._ohms_settings = self._translate_ohms_settings_to_gui(actual_settings)
 			self._show_ohms_settings()
 			self._view.set_status("OHMS configured.")
-			self._graph_window.show_function("OHMS")
+			self._acquisition.show_function("OHMS")
+			self._acquisition.show_range_unit("Resistance", "Ω", self._ohms_settings)
 		except Exception as error:
 			self._view.set_status(f"OHMS set error: {error}")
 			logger.debug(f"<<< _on_ohms_set (error={error})")
@@ -747,6 +777,7 @@ class AppController:
 		logger.debug("<<< _on_ohms_set")
 
 	def _on_digitize_set(self):
+		self._acquisition.stop()
 		logger.debug(">>> _on_digitize_set")
 		try:
 			requested_settings = self._translate_digitize_settings(self._view.get_digitize_settings())
@@ -757,7 +788,7 @@ class AppController:
 			# The digitize aperture is a time only, no PLC to show
 			self._view.set_digitize_settings(self._digitize_settings)
 			self._view.set_status("DIGITIZE configured.")
-			self._graph_window.show_function("DIGITIZE")
+			self._acquisition.show_function("DIGITIZE")
 		except Exception as error:
 			self._view.set_status(f"DIGITIZE set error: {error}")
 			logger.debug(f"<<< _on_digitize_set (error={error})")
@@ -909,8 +940,8 @@ class AppController:
 		)
 
 	'''
-	Unused: continuous reading of the old GUI, the new view has no
-	start/stop buttons and no read display yet (see ReadingThread).
+	Unused: continuous reading of the old GUI, replaced by
+	AcquisitionController (Start/Stop of the graph window).
 	def _on_continuous_start(self):
 		logger.debug(f">>> _on_continuous_start")
 		if self._reading_thread is not None:
@@ -957,11 +988,18 @@ class AppController:
 			self._instr_ctrl.connect(address)
 			# Line frequency is read once per connection; the NPLC limits derive from it
 			self._line_frequency = self._instr_ctrl.get_line_frequency()
-			min_time = scpi.NPLC_MIN / self._line_frequency
-			max_time = scpi.APERTURE_TIME_MAX
-			min_nplc = scpi.NPLC_MIN
-			max_nplc = scpi.APERTURE_TIME_MAX * self._line_frequency
-			self._view.set_aperture_ranges(min_time, max_time, min_nplc, max_nplc)
+			for function, min_time in (
+				("DCV", scpi.APERTURE_TIME_MIN),
+				("DCI", scpi.APERTURE_TIME_MIN),
+				("OHMS", scpi.OHMS_APERTURE_TIME_MIN),
+			):
+				self._view.set_aperture_ranges(
+					function,
+					min_time,
+					scpi.APERTURE_TIME_MAX,
+					self.calculate_plc(min_time),
+					self.calculate_plc(scpi.APERTURE_TIME_MAX),
+				)
 			# The connection resets the instrument (*RST), back to the defaults
 			self._dcv_settings = defaults.dcv_settings()
 			self._view.set_dcv_settings(self._dcv_settings)
@@ -986,6 +1024,7 @@ class AppController:
 			logger.debug(f"<<< _on_connect (error={error})")
 
 	def _on_disconnect(self):
+		self._acquisition.stop()
 		logger.debug(">>> _on_disconnect")
 		if not self._instr_ctrl.is_connected():
 			self._view.set_disconnected()

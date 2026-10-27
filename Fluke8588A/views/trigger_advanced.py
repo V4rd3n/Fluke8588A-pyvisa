@@ -107,6 +107,7 @@ class TriggerAdvancedWindow(QWidget):
             layer.delay.setDecimals(gui_values.TRIGGER_DELAY_DECIMALS)
             layer.timer.setDecimals(gui_values.TRIGGER_TIMER_DECIMALS)
             layer.delay.setRange(*gui_values.TRIGGER_DELAY_RANGE)
+            layer.delay.setResolution(gui_values.TRIGGER_DELAY_RESOLUTION)
             layer.timer.setRange(*gui_values.TRIGGER_TIMER_RANGE)
         self.hold_doublespinbox_2.setDecimals(gui_values.TRIGGER_HOLDOFF_DECIMALS)
         self.hold_doublespinbox_2.setRange(*gui_values.TRIGGER_HOLDOFF_RANGE)
