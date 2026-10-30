@@ -138,6 +138,13 @@
         </widget>
        </item>
        <item>
+        <widget class="QCheckBox" name="secread_checkbox">
+         <property name="text">
+          <string>Show Secondary Reading</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QGroupBox" name="sec_groupbox">
          <property name="title">
           <string>Secondary Reading</string>

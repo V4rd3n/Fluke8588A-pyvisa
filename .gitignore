@@ -214,3 +214,5 @@ claude/
 
 #local agent 
 .github/agents/
+# Acquisition files
+temp/

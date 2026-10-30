@@ -1,6 +1,6 @@
 from PyQt6 import uic
-from PyQt6.QtWidgets import QLCDNumber, QWidget
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtWidgets import QFileDialog, QLCDNumber, QWidget
+from PyQt6.QtCore import QStandardPaths, pyqtSignal
 import os
 
 
@@ -107,6 +107,8 @@ class _ReadingPanel:
 class GraphWindow(QWidget):
     start_requested = pyqtSignal()
     stop_requested = pyqtSignal()
+    save_requested = pyqtSignal()
+    allan_requested = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -140,7 +142,13 @@ class GraphWindow(QWidget):
         )
         self.start_pushbutton.pressed.connect(self.start_requested)
         self.stop_pushbutton.pressed.connect(self.stop_requested)
+        self.save_pushbutton.clicked.connect(self.save_requested)
+        self.allan_generate_pushbutton.clicked.connect(self.allan_requested)
+        self.secread_checkbox.toggled.connect(self.sec_groupbox.setVisible)
+        self._setup_allan_plot()
         self.set_running(False)
+        self.set_save_enabled(False)
+        self.set_allan_enabled(False)
         self.set_primary_unit("Reading", "")
         self.set_secondary_unit("Reading", "")
         self.set_secondary_reading(None)
@@ -159,6 +167,9 @@ class GraphWindow(QWidget):
     def set_secondary_reading(self, secondary_reading: str | None) -> None:
         # Hidden, the primary reading takes the whole window
         visible = secondary_reading is not None
+        # Checked by default: unchecking only hides the secondary groupbox
+        self.secread_checkbox.setVisible(visible)
+        self.secread_checkbox.setChecked(True)
         self.sec_groupbox.setVisible(visible)
         if visible:
             self.sec_groupbox.setTitle(f"Secondary Reading: {secondary_reading}")
@@ -201,9 +212,48 @@ class GraphWindow(QWidget):
         self.start_pushbutton.setEnabled(not running)
         self.stop_pushbutton.setEnabled(running)
 
+    def set_save_enabled(self, enabled: bool) -> None:
+        self.save_pushbutton.setEnabled(enabled)
+
+    def set_allan_enabled(self, enabled: bool) -> None:
+        self.allan_generate_pushbutton.setEnabled(enabled)
+
+    def _setup_allan_plot(self) -> None:
+        plot = self.allan_plotwidget
+        self._allan_curve = plot.plot([], [], symbol="o", symbolSize=POINT_SIZE)
+        plot.setLogMode(x=True, y=True)
+        plot.showGrid(x=True, y=True)
+        plot.setLabel("bottom", "Tau (s)")
+        self._set_allan_unit("")
+
+    def _set_allan_unit(self, base_unit: str) -> None:
+        # Log axes: the SI prefix of the axis does not apply, the unit goes in the label
+        suffix = f" ({base_unit})" if base_unit else ""
+        self.allan_plotwidget.setLabel("left", f"Allan deviation{suffix}")
+
+    def set_allan_curve(self, taus, adevs, base_unit: str) -> None:
+        """Allan deviation of the primary reading, tau in s and adev in base_unit, shown in its tab."""
+        self._set_allan_unit(base_unit)
+        self._allan_curve.setData(taus, adevs)
+        self.allan_plotwidget.enableAutoRange()
+        self.tabWidget.setCurrentWidget(self.allan_tab)
+
+    def clear_allan(self) -> None:
+        self._allan_curve.setData([], [])
+
+    def ask_save_path(self, name: str, directory: str | None = None) -> str | None:
+        """Save dialog with a proposed file name, None when cancelled; Documents when no directory."""
+        if directory is None:
+            directory = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save measurement", os.path.join(directory, name), "CSV files (*.csv);;All files (*)"
+        )
+        return path or None
+
     def clear(self) -> None:
         self._primary.clear()
         self._secondary.clear()
+        self.clear_allan()
 
     def set_primary_curve(self, times: list[float], values: list[float]) -> None:
         """Time in s from the first reading, values in the base unit."""

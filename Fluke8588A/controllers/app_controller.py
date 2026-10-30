@@ -657,7 +657,7 @@ class AppController:
 			self._dcv_settings = self._translate_dcv_settings_to_gui(actual_settings)
 			self._show_dcv_settings()
 			self._view.set_status("DCV configured.")
-			self._acquisition.show_function("DCV")
+			self._acquisition.show_function("DCV", self._dcv_settings)
 			self._acquisition.show_range_unit("Voltage", "V", self._dcv_settings)
 		except Exception as error:
 			self._view.set_status(f"DCV set error: {error}")
@@ -686,7 +686,7 @@ class AppController:
 			self._dci_settings = self._translate_dci_settings_to_gui(actual_settings)
 			self._show_dci_settings()
 			self._view.set_status("DCI configured.")
-			self._acquisition.show_function("DCI")
+			self._acquisition.show_function("DCI", self._dci_settings)
 			self._acquisition.show_range_unit("Current", "A", self._dci_settings)
 		except Exception as error:
 			self._view.set_status(f"DCI set error: {error}")
@@ -745,7 +745,7 @@ class AppController:
 	def _show_ac_graph(self, function: str, quantity: str, base_unit: str, settings) -> None:
 		"""Graph of ACV/ACI: primary unit from the range, second graph for the secondary reading when ON."""
 		secondary_reading = self._ac_secondary_reading(settings)
-		self._acquisition.show_function(function, secondary_reading)
+		self._acquisition.show_function(function, settings, secondary_reading)
 		self._acquisition.show_range_unit(quantity, base_unit, settings)
 		if secondary_reading is not None:
 			self._acquisition.show_secondary_unit(*units.ac_secondary_unit(secondary_reading, base_unit))
@@ -768,7 +768,7 @@ class AppController:
 			self._ohms_settings = self._translate_ohms_settings_to_gui(actual_settings)
 			self._show_ohms_settings()
 			self._view.set_status("OHMS configured.")
-			self._acquisition.show_function("OHMS")
+			self._acquisition.show_function("OHMS", self._ohms_settings)
 			self._acquisition.show_range_unit("Resistance", "Ω", self._ohms_settings)
 		except Exception as error:
 			self._view.set_status(f"OHMS set error: {error}")
@@ -788,7 +788,7 @@ class AppController:
 			# The digitize aperture is a time only, no PLC to show
 			self._view.set_digitize_settings(self._digitize_settings)
 			self._view.set_status("DIGITIZE configured.")
-			self._acquisition.show_function("DIGITIZE")
+			self._acquisition.show_function("DIGITIZE", self._digitize_settings)
 		except Exception as error:
 			self._view.set_status(f"DIGITIZE set error: {error}")
 			logger.debug(f"<<< _on_digitize_set (error={error})")
