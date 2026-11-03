@@ -30,7 +30,6 @@ APERTURE_TIME_DECIMALS = 7  # 200 ns resolution, 1e-7 is rounded up to 2e-7 on t
 # Time aperture from 0 to 10 s in 200 ns increments (operator manual)
 APERTURE_TIME_RESOLUTION = ((10.0, 2e-7),)
 APERTURE_PLC_DECIMALS = 3
-# APERTURE_STEP = 0.01  # unused, the spin box step comes from the .ui
 
 # DCV
 DCV_RANGE = [AUTO, "100 mV", "1 V", "10 V", "100 V", "1 kV"]
@@ -62,7 +61,7 @@ OHM_RANGE = [AUTO, "1 Ω", "10 Ω", "100 Ω", "1 kΩ", "10 kΩ", "100 kΩ", "1 M
 OHM_TRU_RANGE = [AUTO, "1 Ω", "10 Ω", "100 Ω", "1 kΩ", "10 kΩ"]
 
 # DIGITIZE (no autorange)
-DIGI_SIGNAL_VOLTAGE = "Tension"
+DIGI_SIGNAL_VOLTAGE = "Voltage"
 DIGI_SIGNAL_CURRENT = "Current"
 DIGI_V_RANGE = ["100 mV", "1 V", "10 V", "100 V", "1 kV"]
 DIGI_I_RANGE = ["10 μA", "100 μA", "1 mA", "10 mA", "100 mA", "1 A", "10 A", "30 A"]
@@ -79,6 +78,16 @@ DIGI_FILTER = ["OFF", "100 kHz", "3 MHz"]
 DIGI_APERTURE_RANGE = (0.0, 3e-3)
 DIGI_APERTURE_DECIMALS = 7
 DIGI_APERTURE_RESOLUTION = ((1e-3, 2e-7), (3e-3, 1e-4))
+# Digitize window
+DIGI_FFT_WINDOWS = ["Rectangular", "Hanning", "Hamming", "Blackman"]
+# Samples are the trigger count, the rate is 1/timer: 5 MHz at most (operator
+# manual, Digitize), the lowest rate is the longest timer (1e6 s)
+DIGI_NSAMPLES_RANGE = (1, 10_000_000)
+DIGI_SAMPLE_RATE_RANGE = (1e-6, 5e6)
+DIGI_SAMPLE_RATE_DECIMALS = 6
+# Example 2 of the operator manual, Digitize
+DIGI_DEFAULT_NSAMPLES = 10_000
+DIGI_DEFAULT_SAMPLE_RATE = 50_000.0
 
 # Base trigger
 TRIGGER_SOURCE_EXTERNAL = "External"

@@ -2,13 +2,10 @@ import pyvisa
 import logging
 import time
 from datetime import datetime
-# Unused: only the commented digit resolution helpers need it
-# import math
 from Fluke8588A.instrument import scpi
 
 logger = logging.getLogger(__name__)
 
-#CLASSE DEL DMM Fluke 8588A
 class Fluke8588A():
 	"""
 	Class for communicating with Fluke 8588A DMM
@@ -38,7 +35,7 @@ class Fluke8588A():
 	setRange(root, value) / getRange(root) : set/get measurement range
 	setResolutionValue(root, value) / getResolutionValue(root) : set/get absolute resolution
 	setTime(root, value) / getTime(root) : set/get aperture value in seconds
-	setImpedence(root, value) / getImp(root) : set/get input impedance
+	setImpedance(root, value) / getImp(root) : set/get input impedance
 	setRangeMode(root, value) / getRangeMode(root) : set/get range mode ("AUTO" or "MAN")
 	setApertureMode(root, value) / getApertureMode(root) : set/get aperture mode ("AUTO", "FAST", or "MAN")
 	"""
@@ -53,9 +50,8 @@ class Fluke8588A():
 		idn_string = self.identify()
 		logger.info("Instrument %s successfully initialized.", idn_string.strip())
 
-	def __connect(self, address): #private to be only used by init
+	def __connect(self, address):
 		self._rm = pyvisa.ResourceManager()
-		self._address = address
 		self._instr = self._rm.open_resource(address)
 		self.is_connected = True
 		
@@ -158,6 +154,39 @@ class Fluke8588A():
 				raise TimeoutError("No new reading in continuous mode")
 			time.sleep(scpi.FNOW_POLL_S)
 
+	def start_digitize(self):
+		'''
+		Starts a digitize acquisition and returns at once: READ? would block until
+		the last sample, also forever when an external trigger never arrives
+		'''
+		self.write("*CLS")
+		self.write(":ABORt")
+		self.write(":INIT")
+
+	def is_measuring(self):
+		'''True until the trigger system is back to idle, False when the acquisition has ended'''
+		condition = int(float(self.query(":STAT:OPER:COND?")))
+		return bool(condition & scpi.OPERATION_MEASURING_BIT)
+
+	def abort(self):
+		'''Stops the acquisition in progress, the trigger system goes back to idle'''
+		self.write(":ABORt")
+
+	def fetch_block(self, count):
+		'''
+		Readings of the record just acquired, with a timeout for count readings
+		Input:
+			count : readings expected
+		Output:
+			text, comma separated readings
+		'''
+		timeout = self._instr.timeout
+		self._instr.timeout = scpi.TIMEOUT_MS + count * scpi.DIGI_FETCH_MS_PER_READING
+		try:
+			return self.query(":FETCh?")
+		finally:
+			self._instr.timeout = timeout
+
 	def discard_readings(self):
 		'''
 		Empties the reading memory with INIT:CONT ON, so that the next read()
@@ -252,7 +281,7 @@ class Fluke8588A():
 		self.setRange(root, range_val)
 		self.setResolutionValue(root, resolution_val)
 		self.setRangeMode(root, range_mode)
-		self.setImpedence(root, zin_val)
+		self.setImpedance(root, zin_val)
 		self.setApertureMode(root, aperture_mode)
 		if aperture_mode == scpi.APERTURE_MODE_MAN:
 			self.setTime(root, time_val)
@@ -534,47 +563,6 @@ class Fluke8588A():
 			"aperture": self.getTime(scpi.ROOT_DIGITIZE),
 		}
 
-	'''
-	Legacy OHMS initializers: replaced by set_ohms, they use the digit
-	resolution (setResolution) and do not read back.
-	def init_resistance(self, aperture_mode, time_val, mode_val, low_mode_val, range_mode, range_val, resolution_val, filter_val):
-		root=scpi.ROOT_RESISTANCE
-		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
-		self.setWireMode(root, mode_val)
-		self.setLowCurrentMode(root, low_mode_val)
-		self.setRangeMode(root, range_mode)
-		self.setRange(root, range_val)
-		self.setResolution(root, resolution_val)
-		self.setFilter(root, filter_val)
-		self.setTime(root, time_val)
-		self.setApertureMode(root, aperture_mode)
-	
-
-	def init_fresistance(self, aperture_mode, time_val, mode_val, low_mode_val, range_mode, range_val, resolution_val, filter_val):
-		root=scpi.ROOT_FRESISTANCE
-		self.write(":FUNC \"" + root[1:] + "\"") #[1:] serve a rimuovere il : dal root, cosi da avere la formattazione corretta per la stringa
-		self.setWireMode(root, mode_val)
-		self.setLowCurrentMode(root, low_mode_val)
-		self.setRangeMode(root, range_mode)
-		self.setRange(root, range_val)
-		self.setResolution(root, resolution_val)
-		self.setFilter(root, filter_val)
-		self.setTime(root, time_val)
-		self.setApertureMode(root, aperture_mode)
-	'''
-
-	'''
-	Legacy trigger initializer. Use the controller's trigger settings path instead.
-	def init_trigger_base(self, event, count, ecount, delay, holdoff):
-		root = scpi.ROOT_TRIGGER
-		self.setReset(root)
-		self.setCount(root, count)
-		self.setCount(root, ecount)
-		self.setDelay(root, delay)
-		self.setHoldoff(root, holdoff)
-	'''
-
-
 	def getApertureMode(self, root):
 		'''
 		Get aperture mode for given root
@@ -629,14 +617,14 @@ class Fluke8588A():
 
 	def getImp(self, root):
 		'''
-		Get Impedence value for given root
+		Get Impedance value for given root
 		Input:
 			root
 		Output:
 			string, set value
 		'''
 		return self.query(root+":IMP?").strip()
-	def setImpedence(self, root, value):
+	def setImpedance(self, root, value):
 		'''
 		Sets input impedance for given root.
 		Input:
@@ -709,50 +697,6 @@ class Fluke8588A():
 		'''
 		self.write(root+":RANG "+str(value))
 	
-	"""
-	Legacy digit resolution (10**-digits): replaced by setResolutionValue /
-	getResolutionValue, the digits are converted by the Translator on the
-	range. Only the commented init_resistance/init_fresistance used it.
-	def getResolution(self, root):
-		'''
-		Get resolution value for given root
-		Input:
-			root
-		Output:
-			int, digit count (see scpi.VALID_RESOLUTION_DIGITS[root])
-		'''
-		raw_resolution = float(self.query(root+":RES?"))
-		return self.__anti_convert_resolution(raw_resolution)
-	def setResolution(self, root, value):
-		'''
-		Sets resolution in digits for given root.
-		Converts digit count to the resolution value the instrument expects.
-		Input:
-			root  : SCPI root string e.g. ":VOLT:DC", must be a key of
-			        scpi.VALID_RESOLUTION_DIGITS
-			value : int or str, number of digits allowed for root
-			        (scpi.VALID_RESOLUTION_DIGITS[root])
-		Output:
-			float, set value in digits
-
-		Example:
-			setResolution(":VOLT:DC", 4) --> measures 1.2348 V  (returns 4)
-			setResolution(":VOLT:DC", 6) --> measures 1.234778 V (returns 6)
-		'''
-		digit_value = int(value)
-		valid_digits = scpi.VALID_RESOLUTION_DIGITS.get(root)
-		if valid_digits is None:
-			raise ValueError(f"Resolution in digits is not supported for root {root!r}")
-		if digit_value not in valid_digits:
-			raise ValueError(
-				f"{root} resolution must be one of {valid_digits}, got {digit_value}"
-			)
-
-		converted_resolution = self.__convert_resolution(digit_value)
-		self.write(root + ":RES " + str(converted_resolution))
-		return self.getResolution(root)
-	"""
-
 	def setResolutionValue(self, root, value):
 		"""Set an absolute resolution value as specified by the SCPI manual."""
 		resolution_value = float(value)
@@ -763,27 +707,6 @@ class Fluke8588A():
 	def getResolutionValue(self, root):
 		"""Get the absolute resolution value for given root."""
 		return float(self.query(root + ":RES?").strip())
-
-	'''
-	Legacy, helpers of the commented setResolution/getResolution.
-	def __convert_resolution(self, value):
-		return 10**(-value)
-
-	def __anti_convert_resolution(self, value):
-		# Check if value is already in digit format (4-8)
-		# This handles machines that return resolution as digit count directly
-		if value >= 4 and value <= 8 and value == int(value):
-			return int(value)
-		
-		# Otherwise, convert the absolute resolution (1E-4 -> 4 digits).
-		resolution = float(value)
-		if resolution <= 0 or not math.isfinite(resolution):
-			raise ValueError(f"Invalid resolution from instrument: {value}")
-		digits = round(-math.log10(resolution))
-		if math.isclose(resolution, 10 ** -digits, rel_tol=1e-9, abs_tol=1e-15):
-			return digits
-		raise ValueError(f"Unexpected resolution from instrument: {value}")
-	'''
 
 	#ACI
 	def getBlimit(self, root):
@@ -1056,34 +979,6 @@ class Fluke8588A():
 			"level": int(round(float(self.getLevel(root)))),
 			"filter": self.getFilter(root),
 		}
-
-	'''
-	Unused duplicate of resetTrigger (same <root>:RESet command).
-	def setReset(self, root):
-		return self.write(f"{root}:RES")
-	'''
-
-
-	"""
-	Unused and to be fixed before use: zero() is not an f-string, so it sends
-	"{value}" literally, and zeroClear() sends ZERO instead of ZERO:CLEar.
-	#ZERO
-	def zero(self, value):
-		'''
-		input: RANGe || ALL;
-		Output:  1 || 0;
-		Removes residual offsets, applies to active range or function. Returns ‘0’ for success, and ‘1’ for failure;
-		'''
-		return self.query("SENSe:ZERO {value}")
-	
-	def zeroClear(self, value):
-		'''
-		input: RANGe || ALL;
-		Output:  1 || 0;
-		Clears zero, applies to active range or function. Returns ‘0’ for success, and ‘1’ for failure;
-		'''
-		return self.query(f"SENSe:ZERO {value}")
-	"""
 
 	# RESISTANCE and FRESISTANCE (only change is mode, FRES has TRUE as an extra option)
 	def getWireMode(self, root):

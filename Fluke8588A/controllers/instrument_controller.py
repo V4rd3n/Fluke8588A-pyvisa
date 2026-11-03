@@ -1,6 +1,6 @@
 import logging
 from dataclasses import replace
-from typing import Optional  # TYPE_CHECKING unused
+from typing import Optional
 
 import pyvisa
 
@@ -137,20 +137,35 @@ class InstrumentController:
             raise RuntimeError("Cannot discard readings: not connected to instrument")
         self._instrument.discard_readings()
     
-    def identify(self) -> str:
-        """
-        Get instrument identification string.
-        
-        Returns:
-            str: IDN string
-            
-        Raises:
-            RuntimeError: If not connected to instrument
-        """
+    def start_digitize(self) -> None:
+        """Start a digitize acquisition with the current trigger settings, without waiting for it."""
         if not self.is_connected():
-            raise RuntimeError("Cannot identify: not connected to instrument")
-        
-        return self._instrument.identify()
+            raise RuntimeError("Cannot start DIGITIZE: not connected to instrument")
+        self._instrument.start_digitize()
+
+    def is_measuring(self) -> bool:
+        """True until the acquisition started has ended."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot read the status: not connected to instrument")
+        return self._instrument.is_measuring()
+
+    def abort(self) -> None:
+        """Stop the acquisition in progress."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot abort: not connected to instrument")
+        self._instrument.abort()
+
+    def fetch_block(self, count: int) -> str:
+        """Readings of the record just acquired, count is the number expected."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot fetch: not connected to instrument")
+        return self._instrument.fetch_block(count)
+
+    def check_errors(self) -> None:
+        """Empty the instrument error queue, raises if it held errors."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot check errors: not connected to instrument")
+        self._instrument.check_errors()
 
     def get_line_frequency(self) -> float:
         """Return the connected instrument's power-line frequency in hertz."""
@@ -448,140 +463,3 @@ class InstrumentController:
             aperture=settings.aperture,
         )
         return DigitizeSettings(**actual)
-
-    def write(self, command: str) -> None:
-        """
-        Write command to instrument.
-        
-        Args:
-            command: SCPI command string
-            
-        Raises:
-            RuntimeError: If not connected to instrument
-        """
-        if not self.is_connected():
-            raise RuntimeError("Cannot write: not connected to instrument")
-        
-        self._instrument.write(command)
-    
-    def query(self, command: str) -> str:
-        """
-        Query instrument (write and read).
-        
-        Args:
-            command: SCPI command string
-            
-        Returns:
-            str: Response from instrument
-            
-        Raises:
-            RuntimeError: If not connected to instrument
-        """
-        if not self.is_connected():
-            raise RuntimeError("Cannot query: not connected to instrument")
-        
-        return self._instrument.query(command)
-
-    '''
-    Legacy generic SET/readback path. Active measurement methods configure
-    the instrument without querying it for accepted values.
-    def set(self, mode: str, settings):
-        """
-        Configure instrument with given settings and return actual values.
-        
-        Args:
-            mode: Measurement mode (e.g., "DCV", "OHMS")
-            settings: Settings dataclass with configuration parameters
-            
-        Returns:
-            Settings dataclass: Actual settings read back from the instrument
-            
-        Raises:
-            RuntimeError: If not connected to instrument
-        """
-        if not self.is_connected():
-            raise RuntimeError("Cannot set mode: not connected to instrument")
-        
-        if mode == "DCV":
-            from Fluke8588A.data.settings import DcvSettings
-            
-            root = scpi.ROOT_DCV
-            
-            self.set_dcv(settings)
-            
-            actual_settings = DcvSettings(
-                range_mode=self._instrument.getRangeMode(root),
-                range_val=str(self._instrument.getRange(root)),
-                resolution=int(self._instrument.getResolution(root)),
-                zin=self._instrument.getImp(root),
-                aperture_mode=self._instrument.getApertureMode(root),
-                time=self._instrument.getTime(root)
-            )
-            
-            return actual_settings
-        
-        elif mode == "OHMS":    
-            root= scpi.ROOT_RESISTANCE #sets as default
-            # Determine range_mode based on range_val
-            range_mode = "AUTO" if settings.range_val == "AUTO ON" else "MAN"
-            # Convert filter and low_i to instrument format (0 or 1)
-            filter_val = 1 if settings.filter else 0
-            low_mode_val = 1 if settings.low_i else 0
-            
-            if settings.four==True:
-                root= scpi.ROOT_FRESISTANCE
-                self._instrument.init_fresistance(
-                    aperture_mode=settings.aperture_mode,
-                    time_val=float(settings.time),
-                    mode_val=settings.mode,
-                    low_mode_val=low_mode_val,
-                    range_mode=range_mode,
-                    range_val=settings.range_val,
-                    resolution_val=settings.resolution,
-                    filter_val=filter_val
-                )
-
-            elif settings.four==False:
-                root= scpi.ROOT_RESISTANCE
-                self._instrument.init_resistance(
-                    aperture_mode=settings.aperture_mode,
-                    time_val=float(settings.time),
-                    mode_val=settings.mode,
-                    low_mode_val=low_mode_val,
-                    range_mode=range_mode,
-                    range_val=settings.range_val,
-                    resolution_val=settings.resolution,
-                    filter_val=filter_val
-                )
-                
-            actual_settings = OhmsSettings(
-                four=settings.four,
-                range_val=str(self._instrument.getRange(root)),
-                resolution=int(self._instrument.getResolution(root)),
-                mode=self._instrument.getWireMode(root),
-                filter=self._instrument.getFilter(root),
-                low_i=self._instrument.getLowCurrentMode(root),
-                aperture_mode=self._instrument.getApertureMode(root),
-                time=self._instrument.getTime(root)
-            )
-            
-            return actual_settings
-        elif mode == 'DCI':
-            from Fluke8588A.data.settings import DciSettings
-                
-            root = scpi.ROOT_DCI
-            
-            self.set_dci(settings)
-            
-            actual_settings = DciSettings(
-                range_mode=self._instrument.getRangeMode(root),
-                range_val=str(self._instrument.getRange(root)),
-                resolution=int(self._instrument.getResolution(root)),
-                aperture_mode=self._instrument.getApertureMode(root),
-                time=self._instrument.getTime(root)
-            )
-            
-            return actual_settings
-        
-        raise ValueError(f"Invalid mode: {mode}")
-    '''

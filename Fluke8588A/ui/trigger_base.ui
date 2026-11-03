@@ -96,12 +96,12 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>60</width>
+            <width>80</width>
             <height>16777215</height>
            </size>
           </property>
           <property name="text">
-           <string>Delay:</string>
+           <string>Delay (s):</string>
           </property>
          </widget>
         </item>
@@ -192,12 +192,12 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>60</width>
+            <width>80</width>
             <height>16777215</height>
            </size>
           </property>
           <property name="text">
-           <string>Holdoff:</string>
+           <string>Holdoff (s):</string>
           </property>
          </widget>
         </item>
@@ -369,12 +369,12 @@
           </property>
           <property name="maximumSize">
            <size>
-            <width>40</width>
+            <width>80</width>
             <height>16777215</height>
            </size>
           </property>
           <property name="text">
-           <string>Timer:</string>
+           <string>Timer (s):</string>
           </property>
          </widget>
         </item>
@@ -494,7 +494,7 @@
            <item>
             <widget class="QLabel" name="label_10">
              <property name="text">
-              <string>Level</string>
+              <string>Level (% of range)</string>
              </property>
             </widget>
            </item>

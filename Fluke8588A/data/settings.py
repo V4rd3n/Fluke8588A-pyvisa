@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
@@ -65,7 +65,6 @@ class DigitizeSettings:
     filter:     str
     aperture:   float  # seconds, shared by voltage and current
 
-#TO DO, implement a TriggerSettings
 @dataclass
 class TriggerBaseSettings:
     source:     str

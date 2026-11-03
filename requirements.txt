@@ -1,0 +1,9 @@
+PyQt6==6.11.0
+# Not imported by the code: the .ui files use its PlotWidget
+pyqtgraph==0.14.0
+numpy==2.2.6
+scipy==1.15.3
+allantools==2024.6
+pyvisa==1.16.2
+# VISA backend, not needed when NI-VISA or another VISA library is installed
+pyvisa-py==0.8.1

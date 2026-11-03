@@ -92,7 +92,7 @@ def ohms_settings() -> OhmsSettings:
 
 def digitize_settings() -> DigitizeSettings:
 	return DigitizeSettings(
-		signal="Tension",
+		signal="Voltage",
 		range_val="1 kV",
 		coupling_impedance="DC, Auto",
 		filter="3 MHz",

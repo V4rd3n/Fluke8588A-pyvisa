@@ -7,6 +7,7 @@ from Fluke8588A.services import allan
 from Fluke8588A.services import measurement_file
 from Fluke8588A.services.measurement_file import MeasurementFile
 from Fluke8588A.services.statistics import RunningStatistics
+from Fluke8588A.views import plot_export
 from PyQt6.QtCore import QObject, pyqtSignal
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -23,9 +24,9 @@ class AcquisitionController(QObject):
 	With a secondary reading (ACV/ACI) it is read together with the primary
 	one and goes to the second graph, with its own data and statistics.
 	Every acquisition is also saved to a CSV file (services/measurement_file),
-	closed with the final statistics when the acquisition stops; Save copies
-	the file of the acquisition shown, once stopped, where the user chooses,
-	and Generate computes from it the Allan deviation of the primary reading
+	closed with the final statistics when the acquisition stops, and the PNG
+	of its graph with the same name; Save copies file and PNG of the
+	acquisition shown, once stopped, where the user chooses, and Generate computes from it the Allan deviation of the primary reading
 	(during the acquisition from the readings acquired so far), in an
 	AllanThread: the window and the acquisition go on meanwhile.
 
@@ -55,7 +56,9 @@ class AcquisitionController(QObject):
 		self._function = None
 		self._settings = None
 		self._secondary_reading = None
+		self._quantity = ""
 		self._unit = ""
+		self._secondary_quantity = ""
 		self._secondary_unit = ""
 		self._file = None
 		# File of the acquisition shown, for Save; folder of the last Save
@@ -77,13 +80,16 @@ class AcquisitionController(QObject):
 		self._function = function
 		self._settings = settings
 		self._secondary_reading = secondary_reading
+		self._quantity = ""
 		self._unit = ""
+		self._secondary_quantity = ""
 		self._secondary_unit = ""
 		self._clear()
 		self._graph_window.show_function(function, secondary_reading)
 
 	def show_range_unit(self, quantity: str, base_unit: str, settings) -> None:
 		"""Graph unit from the range: mV for 100 mV, V for 1 V..., SI prefix chosen by the axis in AUTO."""
+		self._quantity = quantity
 		self._unit = base_unit
 		unit = None
 		if settings.range_mode == gui_values.RANGE_MODE_MAN:
@@ -95,6 +101,7 @@ class AcquisitionController(QObject):
 
 	def show_secondary_unit(self, quantity: str, base_unit: str) -> None:
 		"""Unit of the secondary reading, SI prefix chosen by the axis (no range to take it from)."""
+		self._secondary_quantity = quantity
 		self._secondary_unit = base_unit
 		self._graph_window.set_secondary_unit(quantity, base_unit)
 
@@ -107,9 +114,15 @@ class AcquisitionController(QObject):
 		self._reading_thread = None
 		self._graph_window.set_running(False)
 		self._close_file()
+		self._export_png()
 		self._graph_window.set_save_enabled(self._shown_file_path is not None)
 		self._update_allan_enabled()
 		logger.debug("<<< AcquisitionController.stop")
+
+	def hide_window(self) -> None:
+		"""Hide the graph window, for a function that does not use it (DIGITIZE)."""
+		self.stop()
+		self._graph_window.hide()
 
 	def close(self) -> None:
 		self.stop()
@@ -172,7 +185,7 @@ class AcquisitionController(QObject):
 		self.status_changed.emit("Acquisition stopped.")
 
 	def _on_save_requested(self):
-		"""Copy of the file of the acquisition shown, name and folder chosen in a dialog."""
+		"""Copy of file and graph of the acquisition shown, name and folder of the file chosen in a dialog."""
 		if self._reading_thread is not None or self._shown_file_path is None:
 			return
 		path = self._graph_window.ask_save_path(
@@ -181,13 +194,14 @@ class AcquisitionController(QObject):
 		if path is None:
 			return
 		try:
-			saved_path = measurement_file.save_copy(self._shown_file_path, Path(path))
+			saved_path, png_path = measurement_file.save_copy(self._shown_file_path, Path(path))
 		except Exception as error:
 			self.status_changed.emit(f"Save error: {error}")
 			logger.debug(f"    SAVE_ERROR: {error}")
 			return
 		self._save_directory = str(saved_path.parent)
-		self.status_changed.emit(f"Saved {saved_path}")
+		graph = "with its graph" if png_path is not None else "without graph (PNG missing)"
+		self.status_changed.emit(f"Saved {saved_path} {graph}")
 
 	def _on_allan_requested(self):
 		"""
@@ -341,6 +355,24 @@ class AcquisitionController(QObject):
 			self._file = None
 			self.status_changed.emit(f"File error, readings no longer saved: {error}")
 			logger.debug(f"    FILE_ERROR: {error}")
+
+	def _export_png(self) -> None:
+		"""PNG of the graph of the acquisition stopped, next to its file with the same name."""
+		if self._shown_file_path is None:
+			return
+		plots = [plot_export.PlotData(
+			self._times, self._values, "Time", "s", self._quantity or "Reading", self._unit or None, symbols=True
+		)]
+		if self._secondary and self._secondary_values:
+			plots.append(plot_export.PlotData(
+				self._secondary_times, self._secondary_values, "Time", "s",
+				self._secondary_quantity or "Reading", self._secondary_unit or None, symbols=True,
+			))
+		try:
+			plot_export.export_png(measurement_file.png_path(self._shown_file_path), plots)
+		except Exception as error:
+			self.status_changed.emit(f"Graph PNG error: {error}")
+			logger.debug(f"    PNG_ERROR: {error}")
 
 	def _close_file(self) -> None:
 		"""Final statistics in the header of the file of the acquisition stopped."""

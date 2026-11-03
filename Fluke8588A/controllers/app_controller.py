@@ -5,6 +5,8 @@ from Fluke8588A.views.main_window import MainWindow
 from Fluke8588A.views.trigger_base import TriggerBaseWindow
 from Fluke8588A.views.trigger_advanced import TriggerAdvancedWindow
 from Fluke8588A.views.graph_window import GraphWindow
+from Fluke8588A.views.digitize_window import DigitizeWindow
+from Fluke8588A.views.graph_visualizer import GraphVisualizerWindow
 from Fluke8588A.data.settings import (
 	AciSettings,
 	AcvSettings,
@@ -18,6 +20,8 @@ from Fluke8588A.data.settings import (
 	TriggerSignalSettings,
 )
 from Fluke8588A.controllers.acquisition_controller import AcquisitionController
+from Fluke8588A.controllers.digitize_controller import DigitizeController
+from Fluke8588A.controllers.graph_visualizer_controller import GraphVisualizerController
 from Fluke8588A.services.translator import Translator
 from Fluke8588A.services import translation_tables as tables
 from Fluke8588A.services import units
@@ -35,8 +39,8 @@ class AppController:
 		self._trigger_base_pop_up = TriggerBaseWindow()
 		self._trigger_advanced_pop_up = TriggerAdvancedWindow()
 		self._graph_window = GraphWindow()
-		# self._trigger_pop_up = TriggerWindow()
-		# self._view.set_disconnected()
+		self._digitize_window = DigitizeWindow()
+		self._graph_visualizer = GraphVisualizerController(GraphVisualizerWindow())
 		# The instrument is reset on connection, so the GUI starts from the defaults
 		self._dcv_settings = defaults.dcv_settings()
 		self._dci_settings = defaults.dci_settings()
@@ -57,8 +61,13 @@ class AppController:
 		self._instr_ctrl=InstrumentController()
 		self._acquisition = AcquisitionController(self._instr_ctrl, self._graph_window)
 		self._acquisition.status_changed.connect(self._view.set_status)
+		self._digitize = DigitizeController(
+			self._instr_ctrl, self._digitize_window, self._apply_digitize_trigger, self._read_digitize_trigger
+		)
+		self._digitize.status_changed.connect(self._view.set_status)
+		# Trigger of the other functions while Base FFT Settings has replaced it
+		self._digitize_trigger_backup = None
 		self._line_frequency = None
-		self._reading_thread= None
 		self._translator = Translator()
 		self._pre_translate_defaults()
 
@@ -91,43 +100,23 @@ class AppController:
 		self._trigger_advanced_pop_up.set_requested.connect(self._on_trigger_advanced_set)
 		self._trigger_advanced_pop_up.reset_requested.connect(self._on_trigger_advanced_reset)
 		self._view.aperture_value_changed.connect(self._on_aperture_value_changed)
+		self._view.graph_visualizer_requested.connect(self._graph_visualizer.show_window)
 		self._view.closed.connect(self._on_main_window_closed)
-		""" self._view.init_requested.connect(self._on_init)
-		self._view.mode_changed.connect(self._on_mode_change)
-		self._view.read_requested.connect(self._on_read)
-		self._view.set_requested.connect(self._on_set)
-		self._view.dcv_signal.connect(self._on_dcv_setting_change)
-		self._view.dci_signal.connect(self._on_dci_setting_change)
-		self._view.ohms_signal.connect(self._on_ohms_setting_change)
-		self._view.continuous_start_requested.connect(self._on_continuous_start)
-		self._view.continuous_stop_requested.connect(self._on_continuous_stop) """
 
-	'''
-	Unused: not connected to any signal, the new view has no read display
-	(set_read) yet.
-	def _on_read(self):
-		logger.debug(f">>> _on_read")
-		if not self._instr_ctrl.is_connected():
-			self._view.set_status("ERROR: not connected.")
-			logger.debug(f"<<< _on_read (not connected)")
-			return
-		try:
-			value=self._instr_ctrl.read()
-			print(value) # REMOVE
-			self._view.set_read(value)
-			logger.debug(f"<<< _on_read (value={value})")
-		except Exception as e:
-			self._view.set_status(f"Read error: {e}")
-			logger.debug(f"<<< _on_read (error={e})")
-	'''
+	def _stop_acquisitions(self):
+		"""Free the instrument, to be called before any command is sent to it."""
+		self._acquisition.stop()
+		self._digitize.stop()
 
 	def _on_main_window_closed(self):
 		self._trigger_base_pop_up.close()
 		self._trigger_advanced_pop_up.close()
+		self._graph_visualizer.close()
+		self._digitize.close()
 		self._acquisition.close()
 
 	def _on_application_about_to_quit(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		if not self._instr_ctrl.is_connected():
 			return
 
@@ -136,114 +125,13 @@ class AppController:
 		except Exception as error:
 			logger.warning(f"Instrument disconnect on close failed: {error}")
 
-	'''
-	Legacy GPIB init and mode selection of the old GUI: replaced by
-	_on_scan/_on_connect and by the function tabs of the view
-	(current_gpib_address, current_mode and set_mode_visible no longer exist).
-	def _on_init(self):
-		logger.debug(f">>> _on_init (gpib_address={self._view.current_gpib_address})")
-		if hasattr(self, '_instr_ctrl'):
-			if self._instr_ctrl.is_connected():
-				self._instr_ctrl.disconnect()
-		self._instr_ctrl.connect(self._view.current_gpib_address)
-		self._view.set_connected()
-		self._view.set_status("Connected")
-		logger.debug(f"<<< _on_init")
-	
-	def _on_mode_change(self):
-		logger.debug(f">>> _on_mode_change (mode={self._view.current_mode})")
-		self._view.set_mode_visible(self._view.current_mode)
-		logger.debug(f"<<< _on_mode_change")
-	'''
-
-	'''
-	Legacy generic SET/readback path. Active measurement handlers commit
-	presenter settings after the instrument accepts the requested values.
-	def _on_set(self):
-		mode=self._view.current_mode
-		logger.debug(f">>> _on_set (mode={mode})")
-		new_settings=self.get_settings_from_mode(mode)
-		logger.debug(f"    SEND_TO_INSTRUMENT: {new_settings}")
-		actual_settings=self._instr_ctrl.set(mode, new_settings)
-		logger.debug(f"    RECEIVED_FROM_INSTRUMENT: {actual_settings}")
-		
-		#Reverse-translate machine values back to GUI format
-		if mode == "DCV":
-			gui_settings = DcvSettings(
-				range_mode=actual_settings.range_mode,
-				range_val=self._translator.translate_reverse("dcv_range", actual_settings.range_val),
-				resolution=actual_settings.resolution,
-				zin=self._translator.translate_reverse("impedence", actual_settings.zin),
-				aperture_mode=actual_settings.aperture_mode,
-				time=actual_settings.time
-			)
-			self._dcv_settings = gui_settings
-		elif mode == "DCI":
-			gui_settings = DciSettings(
-				range_mode=actual_settings.range_mode,
-				range_val=self._translator.translate_reverse("dci_range", actual_settings.range_val),
-				resolution=actual_settings.resolution,
-				aperture_mode=actual_settings.aperture_mode,
-				time=actual_settings.time
-			)
-			self._dci_settings = gui_settings
-		elif mode == "OHMS":
-			gui_settings = OhmsSettings(
-				four=False,
-				range_val=self._translator.translate_reverse("ohm_range", actual_settings.range_val),
-				resolution=actual_settings.resolution,
-				mode=self._translator.translate_reverse("ohm_mode", actual_settings.mode),
-				filter=actual_settings.filter,
-				low_i=actual_settings.low_i,
-				aperture_mode=actual_settings.aperture_mode,
-				time=actual_settings.time
-			)
-			self._ohms_settings = gui_settings
-		
-		# Update the GUI to reflect actual settings
-		logger.debug(f"    REVERSE_TRANSLATED: {gui_settings}")
-		self._view.set_status(f"{mode} settings applied")
-		self._refresh_ui_settings()
-		logger.debug(f"<<< _on_set")
-	'''
-
-	'''
-	Unused: only called by the commented _on_set and aperture handlers, and
-	the view has no current_mode anymore.
-	def get_settings_from_mode(self, mode: str):
-		if mode == "DCV":
-			return self._dcv_settings
-		if mode == "DCI":
-			return self._dci_settings
-		if mode == "OHMS":
-			return self._ohms_settings
-	
-	def _refresh_ui_settings(self):
-		"""Update UI to show current settings from app controller"""
-		mode = self._view.current_mode
-		if mode == "DCV":
-			self._view.set_dcv_settings(self._dcv_settings)
-		elif mode == "DCI":
-			self._view.set_dci_settings(self._dci_settings)
-		elif mode == "OHMS":
-			self._view._on_ohms_settings_received(self._ohms_settings)
-	'''
-
-	'''
-	Unused: the advanced trigger window (self._trigger_pop_up) is not created yet.
-	def _on_trigger_press(self):
-		logger.debug(f">>> _on_trigger_press")
-		self._trigger_pop_up.show()
-		logger.debug(f"<<< _on_trigger_press")
-	'''
-
 	def _on_trigger_base_press(self):
 		logger.debug(f">>> _on_trigger_base_press")
 		self._trigger_base_pop_up.show()
 		logger.debug(f"<<< _on_trigger_base_press")
 
 	def _on_trigger_base_set(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		settings = self._trigger_base_pop_up.get_settings()
 		try:
 			actual = self._instr_ctrl.set_trigger_base(self._translate_trigger_base_settings(settings))
@@ -251,13 +139,14 @@ class AppController:
 			self._set_trigger_advanced_settings(self._advanced_with_base_trigger(
 				self._trigger_advanced_settings, self._trigger_base_settings
 			))
+			self._digitize_trigger_backup = None
 			self._trigger_base_pop_up.close()
 			self._view.set_status("Base trigger settings applied")
 		except Exception as error:
 			self._view.set_status(f"Base trigger error: {error}")
 
 	def _on_trigger_base_reset(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		# GUI state changes only once the instrument has accepted the reset
 		base = defaults.trigger_base_settings()
 		# :TRIG:RESet resets the ARM layers too, but not INIT:CONT
@@ -275,6 +164,7 @@ class AppController:
 			self._set_trigger_advanced_settings(self._advanced_with_base_trigger(
 				advanced, self._trigger_base_settings
 			))
+			self._digitize_trigger_backup = None
 			self._view.set_status("Base trigger reset")
 		except Exception as error:
 			self._view.set_status(f"Base trigger reset error: {error}{self._refresh_trigger_settings()}")
@@ -307,7 +197,7 @@ class AppController:
 		logger.debug(f"<<< _on_trigger_advanced_press")
 
 	def _on_trigger_advanced_set(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		settings = self._trigger_advanced_pop_up.get_settings()
 		try:
 			actual = self._instr_ctrl.set_trigger_advanced(self._translate_trigger_advanced_settings(settings))
@@ -315,13 +205,14 @@ class AppController:
 			self._set_trigger_base_settings(self._base_with_advanced_trigger(
 				self._trigger_base_settings, self._trigger_advanced_settings
 			))
+			self._digitize_trigger_backup = None
 			self._trigger_advanced_pop_up.close()
 			self._view.set_status("Advanced trigger settings applied")
 		except Exception as error:
 			self._view.set_status(f"Advanced trigger error: {error}")
 
 	def _on_trigger_advanced_reset(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		# GUI state changes only once the instrument has accepted the reset
 		advanced = defaults.trigger_advanced_settings()
 		try:
@@ -331,6 +222,7 @@ class AppController:
 			self._set_trigger_base_settings(self._base_with_advanced_trigger(
 				defaults.trigger_base_settings(), self._trigger_advanced_settings
 			))
+			self._digitize_trigger_backup = None
 			self._view.set_status("Advanced trigger reset")
 		except Exception as error:
 			self._view.set_status(f"Advanced trigger reset error: {error}{self._refresh_trigger_settings()}")
@@ -440,35 +332,6 @@ class AppController:
 	def _translate_trigger_layer_to_gui(self, layer: TriggerLayerSettings) -> TriggerLayerSettings:
 		return replace(layer, source=self._translator.translate_from_machine("trigger_source", layer.source))
 			
-	'''
-	Legacy aperture handlers of the old GUI: replaced by _on_aperture_value_changed,
-	the view methods they call (set_aperture_mode, set_time_value,
-	set_nplc_value) no longer exist.
-	def _on_aperture_mode_changed(self, mode):
-		logger.debug(f">>> _on_aperture_mode_changed (mode={mode})")
-		self._view.set_aperture_mode(mode)
-		current_mode = self._view.current_mode
-		settings = self.get_settings_from_mode(current_mode)
-		settings.aperture_mode = mode
-		logger.debug(f"<<< _on_aperture_mode_changed")
-
-	def _on_time_changed(self, time):
-		logger.debug(f">>> _on_time_changed (time={time})")
-		self._view.set_time_value(time)
-		current_mode = self._view.current_mode
-		settings = self.get_settings_from_mode(current_mode)
-		settings.time = time
-		logger.debug(f"<<< _on_time_changed")
-
-	def _on_nplc_changed(self, nplc):
-		# NPLC is handled via _on_time_changed (same value, different units)
-		# This just updates the display label for reference
-		logger.debug(f">>> _on_nplc_changed (nplc={nplc})")
-		self._current_nplc = nplc
-		self._view.set_nplc_value(nplc)
-		logger.debug(f"<<< _on_nplc_changed")
-	'''
-
 	def calculate_plc(self, time: float) -> float:
 		if self._line_frequency is None:
 			raise RuntimeError("Cannot calculate NPLC: instrument is not connected")
@@ -506,14 +369,6 @@ class AppController:
 			time = self.calculate_time(plc)
 		self._view.set_aperture_values(function, time, plc)
 
-	'''
-	Legacy, same as the aperture handlers above.
-	def _set_ui_aperture_settings(self):
-		self._view.set_aperture_mode()
-		self._view.set_time_value()
-	'''
-		
-	
 	def _translate_dcv_settings(self, settings: DcvSettings) -> DcvSettings:
 		# With autorange the resolution is written on a reference range, then
 		# the instrument keeps the digits when it changes range
@@ -647,7 +502,7 @@ class AppController:
 		)
 
 	def _on_dcv_set(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		logger.debug(">>> _on_dcv_set")
 		try:
 			requested_settings = self._translate_dcv_settings(self._view.get_dcv_settings())
@@ -657,6 +512,7 @@ class AppController:
 			self._dcv_settings = self._translate_dcv_settings_to_gui(actual_settings)
 			self._show_dcv_settings()
 			self._view.set_status("DCV configured.")
+			self._leave_digitize()
 			self._acquisition.show_function("DCV", self._dcv_settings)
 			self._acquisition.show_range_unit("Voltage", "V", self._dcv_settings)
 		except Exception as error:
@@ -676,7 +532,7 @@ class AppController:
 			)
 
 	def _on_dci_set(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		logger.debug(">>> _on_dci_set")
 		try:
 			requested_settings = self._translate_dci_settings(self._view.get_dci_settings())
@@ -686,6 +542,7 @@ class AppController:
 			self._dci_settings = self._translate_dci_settings_to_gui(actual_settings)
 			self._show_dci_settings()
 			self._view.set_status("DCI configured.")
+			self._leave_digitize()
 			self._acquisition.show_function("DCI", self._dci_settings)
 			self._acquisition.show_range_unit("Current", "A", self._dci_settings)
 		except Exception as error:
@@ -705,7 +562,7 @@ class AppController:
 			)
 
 	def _on_acv_set(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		logger.debug(">>> _on_acv_set")
 		try:
 			requested_settings = self._translate_acv_settings(self._view.get_acv_settings())
@@ -724,7 +581,7 @@ class AppController:
 		logger.debug("<<< _on_acv_set")
 
 	def _on_aci_set(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		logger.debug(">>> _on_aci_set")
 		try:
 			requested_settings = self._translate_aci_settings(self._view.get_aci_settings())
@@ -745,6 +602,7 @@ class AppController:
 	def _show_ac_graph(self, function: str, quantity: str, base_unit: str, settings) -> None:
 		"""Graph of ACV/ACI: primary unit from the range, second graph for the secondary reading when ON."""
 		secondary_reading = self._ac_secondary_reading(settings)
+		self._leave_digitize()
 		self._acquisition.show_function(function, settings, secondary_reading)
 		self._acquisition.show_range_unit(quantity, base_unit, settings)
 		if secondary_reading is not None:
@@ -758,7 +616,7 @@ class AppController:
 		return settings.secondary_reading
 
 	def _on_ohms_set(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		logger.debug(">>> _on_ohms_set")
 		try:
 			requested_settings = self._translate_ohms_settings(self._view.get_ohms_settings())
@@ -768,6 +626,7 @@ class AppController:
 			self._ohms_settings = self._translate_ohms_settings_to_gui(actual_settings)
 			self._show_ohms_settings()
 			self._view.set_status("OHMS configured.")
+			self._leave_digitize()
 			self._acquisition.show_function("OHMS", self._ohms_settings)
 			self._acquisition.show_range_unit("Resistance", "Ω", self._ohms_settings)
 		except Exception as error:
@@ -777,7 +636,7 @@ class AppController:
 		logger.debug("<<< _on_ohms_set")
 
 	def _on_digitize_set(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		logger.debug(">>> _on_digitize_set")
 		try:
 			requested_settings = self._translate_digitize_settings(self._view.get_digitize_settings())
@@ -788,12 +647,69 @@ class AppController:
 			# The digitize aperture is a time only, no PLC to show
 			self._view.set_digitize_settings(self._digitize_settings)
 			self._view.set_status("DIGITIZE configured.")
-			self._acquisition.show_function("DIGITIZE", self._digitize_settings)
+			self._acquisition.hide_window()
+			self._digitize.show_function(self._digitize_settings)
 		except Exception as error:
 			self._view.set_status(f"DIGITIZE set error: {error}")
 			logger.debug(f"<<< _on_digitize_set (error={error})")
 			return
 		logger.debug("<<< _on_digitize_set")
+
+	def _apply_digitize_trigger(self, samples: int, rate: float) -> TriggerBaseSettings:
+		"""Trigger of Base FFT Settings (operator manual, Digitize example 2), returns the base settings applied."""
+		base = replace(
+			defaults.trigger_base_settings(),
+			source=gui_values.TRIGGER_SOURCE_TIMER,
+			count=samples,
+			delay_auto=False,
+			holdoff_auto=False,
+			timer=1 / rate,
+		)
+		# :TRIG:RESet resets the ARM layers too, their counts multiply the samples
+		current = self._trigger_advanced_settings
+		advanced = replace(
+			defaults.trigger_advanced_settings(),
+			initiate_mode=current.initiate_mode,
+			epoch_start=current.epoch_start,
+			epoch_stop=current.epoch_stop,
+		)
+		try:
+			self._instr_ctrl.reset_trigger_base()
+			actual = self._instr_ctrl.set_trigger_base(self._translate_trigger_base_settings(base))
+		except Exception as error:
+			raise RuntimeError(f"{error}{self._refresh_trigger_settings()}") from error
+		if self._digitize_trigger_backup is None:
+			self._digitize_trigger_backup = current
+		self._set_trigger_base_settings(self._translate_trigger_base_settings_to_gui(actual))
+		self._set_trigger_advanced_settings(self._advanced_with_base_trigger(advanced, self._trigger_base_settings))
+		return self._trigger_base_settings
+
+	def _read_digitize_trigger(self) -> TriggerAdvancedSettings:
+		"""Trigger as it is on the instrument (GUI format), for an acquisition without Base FFT Settings."""
+		actual = self._instr_ctrl.get_trigger_advanced(
+			self._translate_trigger_advanced_settings(self._trigger_advanced_settings)
+		)
+		self._set_trigger_advanced_settings(self._translate_trigger_advanced_settings_to_gui(actual))
+		self._set_trigger_base_settings(self._base_with_advanced_trigger(
+			self._trigger_base_settings, self._trigger_advanced_settings
+		))
+		return self._trigger_advanced_settings
+
+	def _leave_digitize(self):
+		"""
+		For a function that does not use digitize: hide its window and put back the
+		trigger replaced by Base FFT Settings, its count and timer would apply to
+		the new function too.
+		"""
+		self._digitize.hide_window()
+		if self._digitize_trigger_backup is None:
+			return
+		backup, self._digitize_trigger_backup = self._digitize_trigger_backup, None
+		actual = self._instr_ctrl.set_trigger_advanced(self._translate_trigger_advanced_settings(backup))
+		self._set_trigger_advanced_settings(self._translate_trigger_advanced_settings_to_gui(actual))
+		self._set_trigger_base_settings(self._base_with_advanced_trigger(
+			self._trigger_base_settings, self._trigger_advanced_settings
+		))
 
 	def _show_ohms_settings(self):
 		"""Show the applied OHMS settings (GUI format), PLC included when known."""
@@ -939,36 +855,6 @@ class AppController:
 			aperture=settings.aperture,
 		)
 
-	'''
-	Unused: continuous reading of the old GUI, replaced by
-	AcquisitionController (Start/Stop of the graph window).
-	def _on_continuous_start(self):
-		logger.debug(f">>> _on_continuous_start")
-		if self._reading_thread is not None:
-			logger.debug(f"<<< _on_continuous_start (thread already running)")
-			return
-		self._reading_thread=ReadingThread(self._instr_ctrl)
-		self._reading_thread.reading_ready.connect(self._view.set_read) #emits from measurment_controller are redirected to view
-		self._reading_thread.start()
-		self._view.start_button.setEnabled(False)
-		self._view.stop_button.setEnabled(True)
-		self._view.set_status("Continuous reading started.")
-		logger.debug(f"<<< _on_continuous_start")
-		
-
-	def _on_continuous_stop(self):
-		logger.debug(f">>> _on_continuous_stop")
-		if self._reading_thread is None:
-			logger.debug(f"<<< _on_continuous_stop (no thread running)")
-			return True
-		self._reading_thread.stop()
-		self._reading_thread = None
-		self._view.set_status("Stopped.")
-		self._view.stop_button.setEnabled(False)
-		self._view.start_button.setEnabled(True)
-		logger.debug(f"<<< _on_continuous_stop")
-	'''
-
 	def _on_scan(self):
 		logger.debug(">>> _on_scan")
 		try:
@@ -985,6 +871,8 @@ class AppController:
 	def _on_connect(self, address: str):
 		logger.debug(f">>> _on_connect (address={address})")
 		try:
+			self._digitize.hide_window()
+			self._digitize_trigger_backup = None
 			self._instr_ctrl.connect(address)
 			# Line frequency is read once per connection; the NPLC limits derive from it
 			self._line_frequency = self._instr_ctrl.get_line_frequency()
@@ -1024,7 +912,7 @@ class AppController:
 			logger.debug(f"<<< _on_connect (error={error})")
 
 	def _on_disconnect(self):
-		self._acquisition.stop()
+		self._stop_acquisitions()
 		logger.debug(">>> _on_disconnect")
 		if not self._instr_ctrl.is_connected():
 			self._view.set_disconnected()

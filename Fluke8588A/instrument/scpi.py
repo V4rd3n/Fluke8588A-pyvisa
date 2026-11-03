@@ -69,20 +69,6 @@ APERTURE_MODE_FAST = "FAST"
 APERTURE_MODE_MAN = "MAN"
 VALID_APERTURE_MODES = [APERTURE_MODE_AUTO, APERTURE_MODE_FAST, APERTURE_MODE_MAN]
 
-# Unused: aperture used by AUTO FAST at 4, 5, 6, 7, 8 digits
-# AUTO_FAST_VALUES = [1e-2, 1e-1, 1, 1e1, 1e2]
-
-# Unused: resolution in digits accepted by the commented
-# Fluke8588A.setResolution per function root (converted to 10**-digits)
-# VALID_RESOLUTION_DIGITS = {
-# 	ROOT_DCV: [4, 5, 6, 7, 8],
-# 	ROOT_DCI: [4, 5, 6, 7],
-# 	ROOT_ACV: [4, 5, 6, 7],
-# 	ROOT_ACI: [4, 5, 6, 7],
-# 	ROOT_RESISTANCE: [4, 5, 6, 7, 8],
-# 	ROOT_FRESISTANCE: [4, 5, 6, 7, 8],
-# }
-
 # DCV input impedance (<root>:IMP)
 VALID_DCV_IMPEDANCES = ["AUTO", "10M", "1M"]
 
@@ -170,6 +156,13 @@ DIGI_FILTER_3M = "3MHZ"
 # Digitize aperture (:DIG:APERture) in seconds, out of range is -222
 DIGI_APERTURE_MIN = 0.0
 DIGI_APERTURE_MAX = 3e-3
+# Time of one digitize reading: the shortest sample period is aperture + this
+# (operator manual: 200 ns at aperture 0, 400 ns at 200 ns)
+DIGI_READING_TIME = 200e-9
+# :STAT:OPER:COND? bit 4 is false when the trigger system is idle (programmer manual)
+OPERATION_MEASURING_BIT = 16
+# Extra VISA timeout to transfer a block in ASCII, an estimate not yet probed
+DIGI_FETCH_MS_PER_READING = 0.1
 
 # Trigger sources (<trigger root>:SOURce)
 TRIGGER_SOURCE_BUS = "BUS"
