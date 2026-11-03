@@ -1,0 +1,132 @@
+"""
+Values shown by the GUI (View layer).
+
+Combo box items, spin box ranges and the labels/tokens the views put in the
+settings dataclasses. Nothing here knows SCPI: the mapping to instrument values
+lives in services/translation_tables.py.
+
+Access it as a namespace:  from Fluke8588A.data import gui_values  ->  gui_values.DCV_RANGE
+"""
+
+# Tokens used by the views in the settings dataclasses
+AUTO = "AUTO"
+RANGE_MODE_AUTO = "AUTO"
+RANGE_MODE_MAN = "MAN"
+APERTURE_AUTO = "AUTO"
+APERTURE_FAST = "FAST"
+APERTURE_MAN = "MAN"
+
+# Function selector
+FUNCTIONS = ["DCV", "DCI", "ACV", "ACI", "OHMS", "DIGITIZE"]
+
+# Resolution spin boxes (min, max) in displayed digits
+DCV_RESOLUTION_DIGITS = (4, 8)
+DCI_RESOLUTION_DIGITS = (4, 7)
+AC_RESOLUTION_DIGITS = (4, 7)
+OHMS_RESOLUTION_DIGITS = (4, 8)
+
+# Aperture spin boxes; ranges are set at connection from the line frequency
+APERTURE_TIME_DECIMALS = 7  # 200 ns resolution, 1e-7 is rounded up to 2e-7 on the instrument
+# Time aperture from 0 to 10 s in 200 ns increments (operator manual)
+APERTURE_TIME_RESOLUTION = ((10.0, 2e-7),)
+APERTURE_PLC_DECIMALS = 3
+
+# DCV
+DCV_RANGE = [AUTO, "100 mV", "1 V", "10 V", "100 V", "1 kV"]
+DCV_IMPEDANCE = [AUTO, "10 MΩ", "1 MΩ"]
+
+# DCI / ACI
+I_RANGE = [AUTO, "10 μA", "100 μA", "1 mA", "10 mA", "100 mA", "1 A", "10 A", "30 A"]
+
+# ACV / ACI
+ACV_RANGE = [AUTO, "10 mV", "100 mV", "1 V", "10 V", "100 V", "1 kV"]
+RMS_FILTER = ["0.1Hz", "1Hz", "10Hz", "40Hz", "100Hz", "1kHz"]
+ACV_COUPLING_IMPEDANCE = ["DC, Auto", "DC, 1MΩ", "DC, 10MΩ", "AC, 1MΩ", "AC, 10MΩ"]
+ACV_BANDWIDTH_WIDE = "Wideband"
+ACV_BANDWIDTH_EHF = "Extended HF"
+AC_PATH_COUPLING_AC = "AC"
+AC_PATH_COUPLING_DC = "DC"
+AC_BANDWIDTH_LIMIT_OFF = "OFF"
+AC_BANDWIDTH_LIMIT_ON = "ON"
+AC_SECREAD_OFF = "OFF"
+AC_SECREAD_PK2PK = "Pk to Pk"
+AC_SECONDARY_READING = [AC_SECREAD_OFF, "Frequency", "Period", AC_SECREAD_PK2PK, "Crest factor", "Positive peak", "Negative peak"]
+AC_COUNTER_GATE = [AUTO, "1ms", "10ms", "100ms", "1s"]
+AC_PEAK_TO_PEAK = ["Measured", "Sine", "Square", "Triangle", "Truncated sine"]
+
+# OHMS
+OHM_MODE_4W_TRUE = "4W Tru"
+OHM_MODES = ["2W NORMAL", "4W NORMAL", OHM_MODE_4W_TRUE]
+OHM_RANGE = [AUTO, "1 Ω", "10 Ω", "100 Ω", "1 kΩ", "10 kΩ", "100 kΩ", "1 MΩ", "10 MΩ", "100 MΩ", "1 GΩ"]
+OHM_TRU_RANGE = [AUTO, "1 Ω", "10 Ω", "100 Ω", "1 kΩ", "10 kΩ"]
+
+# DIGITIZE (no autorange)
+DIGI_SIGNAL_VOLTAGE = "Voltage"
+DIGI_SIGNAL_CURRENT = "Current"
+DIGI_V_RANGE = ["100 mV", "1 V", "10 V", "100 V", "1 kV"]
+DIGI_I_RANGE = ["10 μA", "100 μA", "1 mA", "10 mA", "100 mA", "1 A", "10 A", "30 A"]
+DIGI_V_COUPLING_IMPEDANCE = ["DC, Auto", "DC, 1MΩ", "DC, 10MΩ", "AC, 1MΩ", "AC, 10MΩ"]
+DIGI_I_COUPLING_IMPEDANCE = ["DC, Auto", "AC, Auto"]
+# *RST values, selected when the signal changes and the current item is not in the new list
+DIGI_V_DEFAULT_RANGE = "1 kV"
+DIGI_I_DEFAULT_RANGE = "30 A"
+DIGI_DEFAULT_COUPLING_IMPEDANCE = "DC, Auto"
+DIGI_FILTER = ["OFF", "100 kHz", "3 MHz"]
+# Aperture spin box in seconds: 200 ns increments up to 1 ms and 100 us from
+# 1 ms to 3 ms (operator manual, Digitize); the instrument rounds a value in
+# between up to the next step
+DIGI_APERTURE_RANGE = (0.0, 3e-3)
+DIGI_APERTURE_DECIMALS = 7
+DIGI_APERTURE_RESOLUTION = ((1e-3, 2e-7), (3e-3, 1e-4))
+# Digitize window
+DIGI_FFT_WINDOWS = ["Rectangular", "Hanning", "Hamming", "Blackman"]
+# Samples are the trigger count, the rate is 1/timer: 5 MHz at most (operator
+# manual, Digitize), the lowest rate is the longest timer (1e6 s)
+DIGI_NSAMPLES_RANGE = (1, 10_000_000)
+DIGI_SAMPLE_RATE_RANGE = (1e-6, 5e6)
+DIGI_SAMPLE_RATE_DECIMALS = 6
+# Example 2 of the operator manual, Digitize
+DIGI_DEFAULT_NSAMPLES = 10_000
+DIGI_DEFAULT_SAMPLE_RATE = 50_000.0
+
+# Base trigger
+TRIGGER_SOURCE_EXTERNAL = "External"
+TRIGGER_SOURCE_INTERNAL = "Internal"
+TRIGGER_SOURCE_TIMER = "Timer"
+TRIGGER_SOURCES = [
+	"Bus", TRIGGER_SOURCE_EXTERNAL, "Hold", "Immediate", TRIGGER_SOURCE_INTERNAL,
+	"Line", "Manual", "Synchronous", TRIGGER_SOURCE_TIMER,
+]
+TRIGGER_EXTERNAL_EDGES = ["TTL Negative", "TTL Positive", "Bipolar Negative", "Bipolar Positive"]
+TRIGGER_COUPLING_DC = "DC"
+TRIGGER_COUPLING_AC = "AC"
+TRIGGER_SLOPE_POS = "POS"
+TRIGGER_SLOPE_NEG = "NEG"
+
+# Trigger spin boxes (min, max), checked on the instrument: out of range is
+# -222. COUNt is 10 000 000 on the TRIG layer too (the manual says 1 000 000)
+TRIGGER_COUNT_RANGE = (1, 10_000_000)
+TRIGGER_ECOUNT_RANGE = (1, 10_000_000)
+# DELay: the smallest non zero delay is 30 ns, lower values are rounded up.
+# 4 000 000 s on every layer as in the manual (4.1e6 is -222)
+TRIGGER_DELAY_RANGE = (0.0, 4_000_000.0)
+TRIGGER_HOLDOFF_RANGE = (0.0, 100.0)
+# TIMer: lower values are rounded up to 20 ns
+TRIGGER_TIMER_RANGE = (2e-8, 1_000_000.0)
+# LEVel: percentage of range
+TRIGGER_LEVEL_RANGE = (-200, 200)
+# Seconds, enough decimals for the 30 ns delay, 20 ns timer and 30 ns holdoff
+TRIGGER_DELAY_DECIMALS = 8
+TRIGGER_HOLDOFF_DECIMALS = 8
+TRIGGER_TIMER_DECIMALS = 8
+# DELay resolution is 10 ns up to 40 s (operator manual), nothing stated above it
+TRIGGER_DELAY_RESOLUTION = ((40.0, 1e-8),)
+
+# Advanced trigger
+TRIGGER_INITIATE_CONTINUOUS_ON = "Continuous ON"
+TRIGGER_INITIATE_CONTINUOUS_OFF = "Continuous OFF"
+TRIGGER_INITIATE_EPOCH = "Epoch"
+TRIGGER_INITIATE_MODES = [
+	TRIGGER_INITIATE_CONTINUOUS_OFF, TRIGGER_INITIATE_CONTINUOUS_ON, TRIGGER_INITIATE_EPOCH,
+]
+TRIGGER_EPOCH_DISPLAY_FORMAT = "yyyy-MM-dd HH:mm:ss"
