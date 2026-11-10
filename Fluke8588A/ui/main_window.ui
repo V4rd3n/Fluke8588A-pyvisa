@@ -142,6 +142,16 @@
                </item>
               </layout>
              </item>
+             <item>
+              <widget class="QCheckBox" name="skip_checkbox">
+               <property name="text">
+                <string>Skip Identify</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
             </layout>
            </item>
           </layout>
@@ -1493,10 +1503,10 @@
  <resources/>
  <connections/>
  <buttongroups>
+  <buttongroup name="buttonGroup_4"/>
+  <buttongroup name="buttonGroup_3"/>
+  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup_5"/>
   <buttongroup name="buttonGroup"/>
-  <buttongroup name="buttonGroup_3"/>
-  <buttongroup name="buttonGroup_4"/>
-  <buttongroup name="buttonGroup_2"/>
  </buttongroups>
 </ui>

@@ -855,10 +855,10 @@ class AppController:
 			aperture=settings.aperture,
 		)
 
-	def _on_scan(self):
-		logger.debug(">>> _on_scan")
+	def _on_scan(self, identify: bool):
+		logger.debug(f">>> _on_scan (identify={identify})")
 		try:
-			resources = self._instr_ctrl.scan_resources()
+			resources = self._instr_ctrl.scan_resources(identify=identify)
 			self._view.set_scan_results(resources)
 			self._view.set_status(f"Found {len(resources)} VISA resource(s)")
 			logger.debug(f"    VISA_RESOURCES: {resources}")

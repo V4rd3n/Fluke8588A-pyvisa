@@ -10,7 +10,7 @@ main_window_loc = os.path.join(os.path.dirname(__file__), "..", "ui", "main_wind
 
 
 class MainWindow(QMainWindow):
-	scan_requested = pyqtSignal()
+	scan_requested = pyqtSignal(bool)  # True = identify resources with *IDN?
 	connect_requested = pyqtSignal(str)
 	disconnect_requested = pyqtSignal()
 	dcv_set_requested = pyqtSignal()
@@ -33,7 +33,9 @@ class MainWindow(QMainWindow):
 		self._init_widgets()
 		
 	def _connect_signals(self):
-		self.scan_pushbutton.pressed.connect(self.scan_requested)
+		self.scan_pushbutton.pressed.connect(
+			lambda: self.scan_requested.emit(not self.skip_checkbox.isChecked())
+		)
 		self.connect_pushbutton.pressed.connect(self._on_connect_pressed)
 		self.funcopen_pushbutton.clicked.connect(
 			lambda: self._on_function_selected(self.op_combobox.currentText())
