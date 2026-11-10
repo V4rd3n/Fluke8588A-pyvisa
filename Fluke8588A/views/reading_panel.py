@@ -54,14 +54,14 @@ class ReadingPanel:
         self._auto_base_unit = base_unit if unit is None else None
         if unit is None:
             axis.setScale(1.0)
+            axis.setLabel(quantity, units=base_unit or None)
             axis.enableAutoSIPrefix(True)
-            self._plot_widget.setLabel("left", quantity, units=base_unit or None)
             self._follow_axis_prefix()
         else:
             # Data stay in the base unit, the axis shows them scaled
             axis.setScale(scale)
+            axis.setLabel(f"{quantity} ({unit})", siPrefixEnableRanges=())
             axis.enableAutoSIPrefix(False)
-            self._plot_widget.setLabel("left", f"{quantity} ({unit})")
             self._show_unit(unit, scale)
 
     def _follow_axis_prefix(self) -> None:
