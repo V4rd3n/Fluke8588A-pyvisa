@@ -34,13 +34,30 @@ class InstrumentController:
         self._instrument: Optional[Fluke8588A] = None
         logger.info("InstrumentController initialized")
 
-    def scan_resources(self) -> list[dict[str, str]]:
-        """Find VISA resources and return display and connection information."""
+    def scan_resources(self, identify: bool = False) -> list[dict[str, str]]:
+        """
+        Find VISA resources and return display and connection information.
+
+        Args:
+            identify: If True, query *IDN? on every resource found (this may put
+                the instruments in remote). If False, only the addresses are listed
+                and no message is sent to the instruments.
+        """
         resource_manager = pyvisa.ResourceManager()
         resources = []
 
         try:
             for address in resource_manager.list_resources():
+                connection_type = address.split("::", 1)[0]
+
+                if not identify:
+                    resources.append({
+                        "address": address,
+                        "identity": "",
+                        "display_name": address,
+                    })
+                    continue
+
                 identity = "No identification response"
 
                 try:
@@ -58,7 +75,6 @@ class InstrumentController:
                     display_identity = ", ".join(identity_parts[:3])
                 else:
                     display_identity = identity
-                connection_type = address.split("::", 1)[0]
 
                 resources.append({
                     "address": address,
