@@ -6,8 +6,6 @@ from Fluke8588A.data import gui_values
 from Fluke8588A.data.settings import AciSettings, AcvSettings, DciSettings, DcvSettings, DigitizeSettings, OhmsSettings
 main_window_loc = os.path.join(os.path.dirname(__file__), "..", "ui", "main_window.ui")
 
-#TODO: check ranges from manual (update settings)
-
 
 class MainWindow(QMainWindow):
 	scan_requested = pyqtSignal(bool)  # True = identify resources with *IDN?
@@ -138,8 +136,7 @@ class MainWindow(QMainWindow):
 		super().closeEvent(event)
 
 	def _init_interactions(self):
-		# Tab hiding part, we iterate the tabs index and show them only if == settings_index,
-		# practically true only with the settings tab, we hide all but it
+		# Only the settings tab is visible at start
 		settings_index = self.tabWidget.indexOf(self.setting_tab)
 
 		for index in range(self.tabWidget.count()):
@@ -147,7 +144,7 @@ class MainWindow(QMainWindow):
 
 		self.tabWidget.setCurrentIndex(settings_index)
 
-		# Disable groups and objects still not useful
+		# Resource selection after a scan finds some, functions and trigger once connected
 		self.func_groupbox.setEnabled(False)
 		self.trig_groupbox.setEnabled(False)
 		self.scan_combobox.setEnabled(False)

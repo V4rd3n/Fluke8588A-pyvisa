@@ -214,29 +214,34 @@ def digitize_average_name(path: Path) -> Path:
 
 
 def write_digitize_header(path: Path, start: datetime, settings, unit: str, count: int, rate: float | None,
-                          continuous: bool, averaged: int | None = None) -> Path:
+                          continuous: bool, averaged: int | None = None, time_stamps: bool = False) -> Path:
     """
     New CSV file of the samples of a digitize acquisition, .csv added when it
     has no suffix: header and column names, the blocks follow with
     append_digitize_block(). count is the number of samples of each block,
-    averaged the number of bursts for a file of their average.
+    averaged the number of bursts for a file of their average, time_stamps
+    True when the rate comes from the instrument time stamps.
     """
     if not path.suffix:
         path = path.with_suffix(".csv")
     x_name = "sample" if rate is None else "time"
-    header = _digitize_header(start, settings, unit, count, rate, continuous, _average_lines(averaged))
+    header = _digitize_header(start, settings, unit, count, rate, continuous, _average_lines(averaged), time_stamps)
     with open(path, "w", encoding="utf-8", newline="") as file:
         file.write(f"{header}{x_name},value\n")
     return path
 
 
-def append_digitize_block(path: Path, values, rate: float | None, burst: int | None = None) -> None:
+def append_digitize_block(path: Path, values, rate: float | None, burst: int | None = None, times=None) -> None:
     """
     Samples of a block at the end of the file: time from the start of the
     block (sample number when the rate is unknown) and value, overloads as
-    nan. In continuous mode a '# burst N' line comes before each block.
+    nan. times, from the time stamps, replace the times from the rate. In
+    continuous mode a '# burst N' line comes before each block.
     """
-    x = np.arange(len(values)) if rate is None else np.arange(len(values)) / rate
+    if times is not None:
+        x = times
+    else:
+        x = np.arange(len(values)) if rate is None else np.arange(len(values)) / rate
     with open(path, "a", encoding="utf-8", newline="") as file:
         if burst is not None:
             file.write(f"# burst {burst}\n")
@@ -244,18 +249,21 @@ def append_digitize_block(path: Path, values, rate: float | None, burst: int | N
 
 
 def write_digitize_time(path: Path, start: datetime, settings, unit: str, values, rate: float | None,
-                        continuous: bool = False, burst: int | None = None, averaged: int | None = None) -> Path:
+                        continuous: bool = False, burst: int | None = None, averaged: int | None = None,
+                        times=None, time_stamps: bool = False) -> Path:
     """
     CSV file of the samples of one block, burst its number in continuous mode;
-    averaged the number of bursts when the block is their average.
+    averaged the number of bursts when the block is their average; times and
+    time_stamps as append_digitize_block() and write_digitize_header().
     """
-    path = write_digitize_header(path, start, settings, unit, len(values), rate, continuous, averaged)
-    append_digitize_block(path, values, rate, burst)
+    path = write_digitize_header(path, start, settings, unit, len(values), rate, continuous, averaged, time_stamps)
+    append_digitize_block(path, values, rate, burst, times)
     return path
 
 
 def write_digitize_fft(path: Path, start: datetime, settings, unit: str, count: int, rate: float,
-                       results=None, continuous: bool = False, averaged: int | None = None) -> Path:
+                       results=None, continuous: bool = False, averaged: int | None = None,
+                       time_stamps: bool = False) -> Path:
     """
     CSV file of the spectrum of a digitize block of count samples, .csv added
     when it has no suffix; results are services/fft.FftResults, window and
@@ -269,7 +277,7 @@ def write_digitize_fft(path: Path, start: datetime, settings, unit: str, count: 
     extra_lines = _average_lines(averaged)
     if results is not None:
         extra_lines += [f"FFT window: {results.window_name}", *_fft_result_lines(results)]
-    header = _digitize_header(start, settings, unit, count, rate, continuous, extra_lines)
+    header = _digitize_header(start, settings, unit, count, rate, continuous, extra_lines, time_stamps)
     with open(path, "w", encoding="utf-8", newline="") as file:
         file.write(f"{header}frequency,magnitude\n")
     if results is not None:
@@ -306,7 +314,7 @@ def _fft_result_lines(results) -> list[str]:
 
 
 def _digitize_header(start: datetime, settings, unit: str, count: int, rate: float | None, continuous: bool,
-                     extra_lines: list[str] | None = None) -> str:
+                     extra_lines: list[str] | None = None, time_stamps: bool = False) -> str:
     lines = [
         SIGNATURE,
         f"Measurement: {_measurement_line('DIGITIZE', settings)}",
@@ -315,8 +323,12 @@ def _digitize_header(start: datetime, settings, unit: str, count: int, rate: flo
         f"Continuous: {'ON' if continuous else 'OFF'}",
         # Of each block in continuous mode
         f"Nrdgs: {count}",
-        f"Sample rate: {'unknown' if rate is None else repr(rate)}",
+        # 1/timer: 12 significant digits drop the float noise (1/1e-05 = 99999.99999999999)
+        f"Sample rate: {'unknown' if rate is None else f'{rate:.12g}'}",
     ]
+    if time_stamps and rate is not None:
+        # 1/mean interval of the time stamps (FETCh? 5), of the first block in continuous mode
+        lines.append("Sample rate from: time stamps")
     lines += extra_lines or []
     return "".join(f"# {line}\n" for line in lines) + "\n"
 

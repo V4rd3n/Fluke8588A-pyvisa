@@ -22,7 +22,7 @@ class DigitizeController(QObject):
 	the window. Averaged, in continuous mode only, the window shows the
 	average of the bursts sample by sample and the FFT of the average.
 
-	With Base FFT Settings the trigger is set from samples and sample rate,
+	With Auto Base Trigger Settings the trigger is set from samples and sample rate,
 	otherwise it stays as set in the trigger windows. The trigger state belongs
 	to AppController: apply_trigger(samples, rate) sets it and read_trigger()
 	reads it, both return it in GUI format.
@@ -35,6 +35,11 @@ class DigitizeController(QObject):
 	user chooses, the spectrum as <name>_freq. Averaged, the spectra of the
 	bursts are not computed: at the end the average and its spectrum go in
 	<name>_avg and <name>_freq_avg, next to the file of all the bursts.
+
+	When the trigger does not give the sample rate (without Auto Base Trigger
+	Settings), the instrument time stamps (FETCh? 5) are read with the block:
+	the rate is 1/mean interval and the time axis the real times, the
+	regularity of the intervals is shown, not judged.
 
 	The thread shares the instrument with the writes of AppController: stop()
 	must be called before any command is sent to the instrument.
@@ -54,8 +59,14 @@ class DigitizeController(QObject):
 		self._values = None
 		# Date and time of the Start, in the file names and headers
 		self._start_datetime = None
-		# None when the trigger does not give a known sample rate
+		# None when neither the trigger nor the time stamps give a known sample rate
 		self._rate = None
+		# Time stamps read with each block: the trigger does not give the rate
+		self._time_stamps = False
+		# Times from the time stamps of the last block received and of the block
+		# shown (None for the average and without time stamps)
+		self._block_times = None
+		self._times = None
 		self._requested_count = 0
 		self._continuous = False
 		self._averaged = False
@@ -113,6 +124,8 @@ class DigitizeController(QObject):
 	def _clear(self) -> None:
 		self._values = None
 		self._rate = None
+		self._block_times = None
+		self._times = None
 		self._results = None
 		self._time_path = None
 		self._fft_path = None
@@ -146,7 +159,8 @@ class DigitizeController(QObject):
 		self._requested_count = count
 		self._continuous = self._digitize_window.is_continuous()
 		self._averaged = self._continuous and self._digitize_window.is_averaged()
-		self._thread = DigitizeThread(self._instr_ctrl, count, self._continuous)
+		self._time_stamps = rate is None and count <= scpi.DIGI_MAX_SAMPLES_TIME_STAMPS
+		self._thread = DigitizeThread(self._instr_ctrl, count, self._continuous, self._time_stamps)
 		self._thread.block_ready.connect(self._on_block_ready)
 		self._thread.block_failed.connect(self._on_block_failed)
 		self._thread.start()
@@ -154,10 +168,18 @@ class DigitizeController(QObject):
 		mode = ""
 		if self._continuous:
 			mode = " in continuous mode, averaged" if self._averaged else " in continuous mode"
-		self.status_changed.emit(f"Digitizing {count} samples{mode}...")
+		rate_note = ""
+		if self._time_stamps:
+			rate_note = " Sample rate unknown from the trigger: read from the time stamps."
+		elif rate is None:
+			rate_note = (
+				f" Sample rate unknown from the trigger, no time stamps above "
+				f"{scpi.DIGI_MAX_SAMPLES_TIME_STAMPS} samples: time graph only."
+			)
+		self.status_changed.emit(f"Digitizing {count} samples{mode}...{rate_note}")
 		logger.debug(
 			f"<<< DigitizeController._on_start_requested (count={count}, rate={rate}, "
-			f"continuous={self._continuous}, averaged={self._averaged})"
+			f"continuous={self._continuous}, averaged={self._averaged}, time_stamps={self._time_stamps})"
 		)
 
 	def _prepare_trigger(self) -> tuple[int, float | None]:
@@ -187,16 +209,16 @@ class DigitizeController(QObject):
 		layer = trigger.trigger
 		if (
 			layer.source != gui_values.TRIGGER_SOURCE_TIMER
-			or layer.ecount != 1
 			or trigger.arm1.count != 1
 			or trigger.arm2.count != 1
 			# Longer than the timer, they make the rate slower than 1/timer (operator manual)
 			or layer.delay + layer.holdoff >= layer.timer
 		):
 			return None
-		return 1 / layer.timer
+		# ECount divides the timer events: one sample every ecount ticks (probed, ECount 3 at 10 us -> 33.3 kHz)
+		return 1 / (layer.ecount * layer.timer)
 
-	def _on_block_ready(self, values, errors: str):
+	def _on_block_ready(self, values, stamps, errors: str):
 		if self.sender() is not self._thread or self._thread is None:
 			return
 		if not self._continuous:
@@ -212,11 +234,14 @@ class DigitizeController(QObject):
 			messages.insert(0, f"Burst {self._burst_count}:")
 		if len(values) != self._requested_count:
 			messages.append(f"WARNING: {self._requested_count} requested, trigger too fast?")
+		if stamps is not None:
+			messages.append(self._apply_time_stamps(values, stamps))
 		if self._averaged:
 			messages.append(self._add_to_average(values))
 		else:
 			self._values = values
-		self._digitize_window.set_time_curve(self._values, self._rate)
+			self._times = self._block_times
+		self._digitize_window.set_time_curve(self._values, self._rate, self._times)
 		# While running the block changes at every burst: saved after Stop
 		self._digitize_window.set_save_enabled(self._thread is None)
 		if bad.any():
@@ -225,7 +250,7 @@ class DigitizeController(QObject):
 		out_of_range = np.isnan(self._values).any()
 		if self._averaged and out_of_range:
 			messages.append("Samples never in range in the average: no FFT.")
-		elif not out_of_range and self._rate is None:
+		elif not out_of_range and self._rate is None and stamps is None:
 			messages.append("Sample rate unknown from the trigger: time graph only, no FFT.")
 		if errors:
 			messages.append(errors)
@@ -239,6 +264,27 @@ class DigitizeController(QObject):
 		if temp_message:
 			messages.append(temp_message)
 		self.status_changed.emit(" ".join(messages))
+
+	def _apply_time_stamps(self, values, stamps) -> str:
+		"""
+		Sample rate and times of a block from its time stamps (FETCh? 5: the
+		first is the wait for the first sample, then the intervals); returns a
+		message. The intervals are not judged: their spread is shown.
+		"""
+		self._block_times = None
+		intervals = stamps[1:]
+		if len(stamps) != len(values) or len(intervals) == 0:
+			self._rate = None
+			return f"Time stamps not usable ({len(stamps)} for {len(values)} samples): no FFT."
+		if not np.all(np.isfinite(intervals)) or np.any(intervals <= 0):
+			self._rate = None
+			return "Time stamps not usable (invalid intervals): no FFT."
+		self._block_times = np.concatenate(([0.0], np.cumsum(intervals)))
+		self._rate = 1 / intervals.mean()
+		return (
+			f"Sample rate from time stamps: {self._rate:.12g} Hz, "
+			f"interval std {intervals.std():.3g} s (the FFT assumes evenly spaced samples)."
+		)
 
 	def _on_block_failed(self, error: str):
 		if self.sender() is not self._thread or self._thread is None:
@@ -319,12 +365,12 @@ class DigitizeController(QObject):
 				)
 				self._time_path = measurement_file.write_digitize_header(
 					path, self._start_datetime, self._settings, self._unit, len(self._block), self._rate,
-					self._continuous,
+					self._continuous, time_stamps=self._time_stamps,
 				)
 				logger.debug(f"    FILE: {self._time_path}")
 			# Averaged too: every burst, the average goes in its own file at the end
 			burst = self._burst_count if self._continuous else None
-			measurement_file.append_digitize_block(self._time_path, self._block, self._rate, burst)
+			measurement_file.append_digitize_block(self._time_path, self._block, self._rate, burst, self._block_times)
 		except Exception as error:
 			self._time_file_failed = True
 			logger.debug(f"    FILE_ERROR: {error}")
@@ -340,7 +386,7 @@ class DigitizeController(QObject):
 				path = measurement_file.digitize_frequency_name(self._time_path)
 				self._fft_path = measurement_file.write_digitize_fft(
 					path, self._start_datetime, self._settings, self._unit, len(self._values), self._rate,
-					continuous=True,
+					continuous=True, time_stamps=self._time_stamps,
 				)
 				logger.debug(f"    FILE: {self._fft_path}")
 			measurement_file.append_digitize_spectrum(self._fft_path, self._results, self._burst_count)
@@ -355,7 +401,7 @@ class DigitizeController(QObject):
 		try:
 			if self._time_path is not None:
 				# Averaged, the graph of the bursts file is of the last burst
-				self._export_time_png(measurement_file.png_path(self._time_path), self._block)
+				self._export_time_png(measurement_file.png_path(self._time_path), self._block, self._block_times)
 			if self._continuous and not self._averaged:
 				# The spectra are already in the file, the graph is of the last one
 				if self._fft_path is not None and self._results is not None:
@@ -414,14 +460,18 @@ class DigitizeController(QObject):
 		"""CSV file and PNG graph of the block shown."""
 		path = measurement_file.write_digitize_time(
 			path, self._start_datetime, self._settings, self._unit, self._values, self._rate,
-			self._continuous, self._burst(), self._averaged_bursts(),
+			self._continuous, self._burst(), self._averaged_bursts(), self._times, self._time_stamps,
 		)
-		self._export_time_png(measurement_file.png_path(path), self._values)
+		self._export_time_png(measurement_file.png_path(path), self._values, self._times)
 		return path
 
-	def _export_time_png(self, path: Path, values) -> None:
+	def _export_time_png(self, path: Path, values, times=None) -> None:
+		"""Graph of a block, on the times from the time stamps when given."""
 		x_label, x_units = ("Sample", None) if self._rate is None else ("Time", "s")
-		x = np.arange(len(values)) if self._rate is None else np.arange(len(values)) / self._rate
+		if times is not None:
+			x = times
+		else:
+			x = np.arange(len(values)) if self._rate is None else np.arange(len(values)) / self._rate
 		plot_export.export_png(path, [
 			plot_export.PlotData(x, values, x_label, x_units, self._quantity, self._unit)
 		])
@@ -430,7 +480,7 @@ class DigitizeController(QObject):
 		"""CSV file and PNG graph of the spectrum shown."""
 		path = measurement_file.write_digitize_fft(
 			path, self._start_datetime, self._settings, self._unit, len(self._values), self._rate, self._results,
-			self._continuous, self._averaged_bursts(),
+			self._continuous, self._averaged_bursts(), self._time_stamps,
 		)
 		self._export_fft_png(measurement_file.png_path(path))
 		return path

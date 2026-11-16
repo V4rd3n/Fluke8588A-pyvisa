@@ -1,5 +1,5 @@
 PyQt6==6.11.0
-# Not imported by the code: the .ui files use its PlotWidget
+# Plots of the .ui files (PlotWidget) and PNG export
 pyqtgraph==0.14.0
 numpy==2.2.6
 scipy==1.15.3

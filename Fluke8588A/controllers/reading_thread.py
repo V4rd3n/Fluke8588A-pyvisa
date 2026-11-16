@@ -29,4 +29,4 @@ class ReadingThread(QThread):
 
     def stop(self):
         self._running= False
-        self.wait() #waits for thread to finish (the reading in progress ends first)
+        self.wait()  # the reading in progress ends first

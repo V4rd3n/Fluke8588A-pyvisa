@@ -27,6 +27,7 @@ class InstrumentController:
     """
     Model layer for instrument control in MVP pattern.
     Provides a clean interface between the Presenter and the Fluke8588A library.
+    The methods talking to the instrument raise RuntimeError when not connected.
     """
     
     def __init__(self):
@@ -87,24 +88,11 @@ class InstrumentController:
             resource_manager.close()
     
     def is_connected(self) -> bool:
-        """
-        Check if instrument is connected.
-        
-        Returns:
-            bool: True if instrument is connected, False otherwise
-        """
+        """True when an instrument is connected."""
         return self._instrument is not None and self._instrument.is_connected
     
     def connect(self, address: str) -> None:
-        """
-        Connect to instrument at given GPIB address.
-        
-        Args:
-            address: GPIB address of the instrument
-            
-        Raises:
-            Exception: If connection fails
-        """
+        """Connect to the instrument at a VISA address (it is reset), raises if the connection fails."""
         if self.is_connected():
             self.disconnect()
         
@@ -112,36 +100,21 @@ class InstrumentController:
         logger.info(f"Connected to instrument at address {address}")
     
     def disconnect(self) -> None:
-        """
-        Disconnect from instrument and clean up resources.
-        """
+        """Disconnect from the instrument and free the VISA resources."""
         if self._instrument is not None:
             self._instrument.close()
             self._instrument = None
             logger.info("Disconnected from instrument")
     
     def read(self) -> str:
-        """
-        Read measurement from instrument.
-        
-        Returns:
-            str: Measurement value as string
-            
-        Raises:
-            RuntimeError: If not connected to instrument
-        """
+        """Take a measurement, return the readings as comma separated text."""
         if not self.is_connected():
             raise RuntimeError("Cannot read: not connected to instrument")
         
         return self._instrument.read()
 
     def read_with_secondary(self) -> tuple[str, str | None]:
-        """
-        Read primary and secondary measurement (same number of readings).
-
-        Returns:
-            tuple: primary text, secondary text (None in continuous mode)
-        """
+        """Primary and secondary readings (as many), secondary None in continuous mode."""
         if not self.is_connected():
             raise RuntimeError("Cannot read: not connected to instrument")
 
@@ -176,6 +149,18 @@ class InstrumentController:
         if not self.is_connected():
             raise RuntimeError("Cannot fetch: not connected to instrument")
         return self._instrument.fetch_block(count)
+
+    def fetch_time_stamps(self, count: int) -> str:
+        """Time stamps (FETCh? 5) of the record just acquired, count is the number expected."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot fetch time stamps: not connected to instrument")
+        return self._instrument.fetch_time_stamps(count)
+
+    def set_time_stamps(self, state: bool) -> None:
+        """Reading time stamps ON or OFF, a setting shared by all the functions."""
+        if not self.is_connected():
+            raise RuntimeError("Cannot set time stamps: not connected to instrument")
+        self._instrument.set_time_stamps(state)
 
     def check_errors(self) -> None:
         """Empty the instrument error queue, raises if it held errors."""
@@ -277,7 +262,6 @@ class InstrumentController:
             )
         self._instrument.check_errors()
 
-        # Read back only after all writes
         return self._read_trigger_advanced(settings)
 
     def get_trigger_advanced(self, fallback: TriggerAdvancedSettings) -> TriggerAdvancedSettings:
@@ -370,12 +354,7 @@ class InstrumentController:
             self._instrument.setFilter(root, signal.filter)
     
     def reset(self) -> None:
-        """
-        Reset instrument to power-on state.
-        
-        Raises:
-            RuntimeError: If not connected to instrument
-        """
+        """Reset the instrument to its power-on state."""
         if not self.is_connected():
             raise RuntimeError("Cannot reset: not connected to instrument")
         

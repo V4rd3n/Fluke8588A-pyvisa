@@ -5,9 +5,6 @@ import os
 from Fluke8588A.data import gui_values
 from Fluke8588A.data.settings import TriggerBaseSettings
 
-#TODO: fix auto on/off not working, fix external edge selection, add ranges 
-
-
 
 trigger_base_window_loc = os.path.join(
     os.path.dirname(__file__), "..", "ui", "trigger_base.ui"
