@@ -12,8 +12,6 @@ Tested over USB and GPIB, on Windows with firmware 1.32.
 - DIGITIZE blocks with FFT (peak, peak frequency, THD), single or continuous, also averaged
 - Every acquisition saved as CSV with a PNG of its graph, and a graph visualizer to view the files without the instrument
 
-A user manual with the details is planned.
-
 # Installation
 Python 3.10 or later is required.
 
