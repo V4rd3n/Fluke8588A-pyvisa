@@ -49,6 +49,7 @@ class DigitizeWindow(QWidget):
         self.save_pushbutton.clicked.connect(self.save_requested)
         self.fftwin_combobox.currentIndexChanged.connect(self.fft_window_changed)
         self.continuous_checkbox.toggled.connect(self._show_continuous)
+        self.basefft_groupbox.toggled.connect(self._update_averaged)
         self._show_continuous(self.is_continuous())
         self.set_running(False)
         self.set_save_enabled(False)
@@ -104,15 +105,22 @@ class DigitizeWindow(QWidget):
         return self.continuous_checkbox.isChecked()
 
     def is_averaged(self) -> bool:
-        # Unchecked by _show_continuous out of continuous mode
+        # Unchecked by _update_averaged when averaging is not allowed
         return self.averaged_checkbox.isChecked()
 
     def _show_continuous(self, continuous: bool) -> None:
         # Burst count and averaging have a meaning only with more blocks
         self.label_7.setVisible(continuous)
         self.nburst_lcdnumber.setVisible(continuous)
-        self.averaged_checkbox.setEnabled(continuous and self.start_pushbutton.isEnabled())
-        if not continuous:
+        self._update_averaged()
+
+    def _update_averaged(self) -> None:
+        # Auto Base Trigger uses the Timer: each burst starts at a random phase of
+        # the signal and the average would cancel it. Without Auto Base Trigger the user
+        # is in charge of a phase-locked trigger (External/Internal, see manual)
+        allowed = self.is_continuous() and not self.is_base_fft()
+        self.averaged_checkbox.setEnabled(allowed and self.start_pushbutton.isEnabled())
+        if not allowed:
             self.averaged_checkbox.setChecked(False)
 
     def set_burst_count(self, count: int) -> None:
@@ -124,15 +132,21 @@ class DigitizeWindow(QWidget):
         # The trigger is set at Start, a change in the meanwhile would not apply
         self.basefft_groupbox.setEnabled(not running)
         self.continuous_checkbox.setEnabled(not running)
-        self.averaged_checkbox.setEnabled(not running and self.is_continuous())
+        self._update_averaged()
 
     def set_save_enabled(self, enabled: bool) -> None:
         self.save_pushbutton.setEnabled(enabled)
 
-    def set_time_curve(self, values, rate: float | None) -> None:
-        """Block acquired, nan for the samples left out; on the sample number when the rate is unknown."""
+    def set_time_curve(self, values, rate: float | None, times=None) -> None:
+        """
+        Block acquired, nan for the samples left out; on the times from the
+        time stamps when given, else on the sample number when the rate is unknown.
+        """
         x = np.arange(len(values))
-        if rate is None:
+        if times is not None:
+            x = times
+            self.time_plotwidget.setLabel("bottom", "Time", units="s")
+        elif rate is None:
             self.time_plotwidget.setLabel("bottom", "Sample", units=None)
         else:
             x = x / rate

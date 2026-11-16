@@ -159,10 +159,14 @@ DIGI_APERTURE_MAX = 3e-3
 # Time of one digitize reading: the shortest sample period is aperture + this
 # (operator manual: 200 ns at aperture 0, 400 ns at 200 ns)
 DIGI_READING_TIME = 200e-9
-# :STAT:OPER:COND? bit 4 is false when the trigger system is idle (programmer manual)
-OPERATION_MEASURING_BIT = 16
-# Extra VISA timeout to transfer a block in ASCII, an estimate not yet probed
+# :STAT:OPER:COND? bit 4 in Digitize (probed fw 1.32, opposite of the programmer
+# manual): 0 from INIT until the record is complete, also while waiting for a
+# trigger that never arrives, then set until the next INIT
+OPERATION_RECORD_DONE_BIT = 16
+# Extra VISA timeout to transfer a block in ASCII (probed 0.035-0.05 ms per reading)
 DIGI_FETCH_MS_PER_READING = 0.1
+# Most digitize samples with time stamps ON (operator manual: 10e6 with them OFF)
+DIGI_MAX_SAMPLES_TIME_STAMPS = 5_000_000
 
 # Trigger sources (<trigger root>:SOURce)
 TRIGGER_SOURCE_BUS = "BUS"

@@ -32,7 +32,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class AppController:
-	TEST_MODE = True  # Set to False to disable debug output (logger level, see main.py)
+	TEST_MODE = False  # True to enable debug output (logger level, see main.py)
 	
 	def __init__(self):
 		self._view = MainWindow()
@@ -65,7 +65,7 @@ class AppController:
 			self._instr_ctrl, self._digitize_window, self._apply_digitize_trigger, self._read_digitize_trigger
 		)
 		self._digitize.status_changed.connect(self._view.set_status)
-		# Trigger of the other functions while Base FFT Settings has replaced it
+		# Trigger of the other functions while Auto Base Trigger Settings has replaced it
 		self._digitize_trigger_backup = None
 		self._line_frequency = None
 		self._translator = Translator()
@@ -371,7 +371,8 @@ class AppController:
 
 	def _translate_dcv_settings(self, settings: DcvSettings) -> DcvSettings:
 		# With autorange the resolution is written on a reference range, then
-		# the instrument keeps the digits when it changes range
+		# the instrument keeps the digits when it changes range (see
+		# translation_tables.DCV_AUTO_REFERENCE_RANGE)
 		resolution_range = (
 			tables.DCV_AUTO_REFERENCE_RANGE
 			if settings.range_mode == gui_values.RANGE_MODE_AUTO
@@ -391,8 +392,7 @@ class AppController:
 		)
 
 	def _translate_dci_settings(self, settings: DciSettings) -> DciSettings:
-		# With autorange the resolution is written on a reference range, then
-		# the instrument keeps the digits when it changes range
+		# Reference range in autorange, as in _translate_dcv_settings
 		resolution_range = (
 			tables.DCI_AUTO_REFERENCE_RANGE
 			if settings.range_mode == gui_values.RANGE_MODE_AUTO
@@ -411,8 +411,7 @@ class AppController:
 		)
 
 	def _translate_acv_settings(self, settings: AcvSettings) -> AcvSettings:
-		# With autorange the resolution is written on a reference range, then
-		# the instrument keeps the digits when it changes range
+		# Reference range in autorange, as in _translate_dcv_settings
 		resolution_range = (
 			tables.ACV_AUTO_REFERENCE_RANGE
 			if settings.range_mode == gui_values.RANGE_MODE_AUTO
@@ -439,8 +438,7 @@ class AppController:
 		)
 
 	def _translate_aci_settings(self, settings: AciSettings) -> AciSettings:
-		# With autorange the resolution is written on a reference range, then
-		# the instrument keeps the digits when it changes range
+		# Reference range in autorange, as in _translate_dcv_settings
 		resolution_range = (
 			tables.ACI_AUTO_REFERENCE_RANGE
 			if settings.range_mode == gui_values.RANGE_MODE_AUTO
@@ -656,7 +654,7 @@ class AppController:
 		logger.debug("<<< _on_digitize_set")
 
 	def _apply_digitize_trigger(self, samples: int, rate: float) -> TriggerBaseSettings:
-		"""Trigger of Base FFT Settings (operator manual, Digitize example 2), returns the base settings applied."""
+		"""Trigger of Auto Base Trigger Settings (operator manual, Digitize example 2), returns the base settings applied."""
 		base = replace(
 			defaults.trigger_base_settings(),
 			source=gui_values.TRIGGER_SOURCE_TIMER,
@@ -685,7 +683,7 @@ class AppController:
 		return self._trigger_base_settings
 
 	def _read_digitize_trigger(self) -> TriggerAdvancedSettings:
-		"""Trigger as it is on the instrument (GUI format), for an acquisition without Base FFT Settings."""
+		"""Trigger as it is on the instrument (GUI format), for an acquisition without Auto Base Trigger Settings."""
 		actual = self._instr_ctrl.get_trigger_advanced(
 			self._translate_trigger_advanced_settings(self._trigger_advanced_settings)
 		)
@@ -698,7 +696,7 @@ class AppController:
 	def _leave_digitize(self):
 		"""
 		For a function that does not use digitize: hide its window and put back the
-		trigger replaced by Base FFT Settings, its count and timer would apply to
+		trigger replaced by Auto Base Trigger Settings, its count and timer would apply to
 		the new function too.
 		"""
 		self._digitize.hide_window()
@@ -751,7 +749,6 @@ class AppController:
 				if settings.range_mode == scpi.RANGE_MODE_AUTO_STR
 				else self._translator.translate_from_machine("dci_range", settings.range_val)
 			),
-			# range_val is the range actually in use, also with auto range
 			resolution=self._translator.translate_resolution_from_machine(
 				settings.resolution,
 				gui_values.DCI_RESOLUTION_DIGITS[1],
@@ -772,7 +769,6 @@ class AppController:
 				if settings.range_mode == scpi.RANGE_MODE_AUTO_STR
 				else self._translator.translate_from_machine("acv_range", settings.range_val)
 			),
-			# range_val is the range actually in use, also with auto range
 			resolution=self._translator.translate_resolution_from_machine(
 				settings.resolution,
 				gui_values.AC_RESOLUTION_DIGITS[1],
@@ -801,7 +797,6 @@ class AppController:
 				if settings.range_mode == scpi.RANGE_MODE_AUTO_STR
 				else self._translator.translate_from_machine("aci_range", settings.range_val)
 			),
-			# range_val is the range actually in use, also with auto range
 			resolution=self._translator.translate_resolution_from_machine(
 				settings.resolution,
 				gui_values.AC_RESOLUTION_DIGITS[1],
@@ -830,7 +825,6 @@ class AppController:
 				if settings.range_mode == scpi.RANGE_MODE_AUTO_STR
 				else range_label
 			),
-			# range_val is the range actually in use, also with auto range
 			resolution=self._translator.translate_resolution_from_machine(
 				settings.resolution,
 				gui_values.OHMS_RESOLUTION_DIGITS[1],

@@ -25,7 +25,7 @@
         <item>
          <widget class="QGroupBox" name="basefft_groupbox">
           <property name="title">
-           <string>Base FFT Settings</string>
+           <string>Auto Base Trigger Settings</string>
           </property>
           <property name="checkable">
            <bool>true</bool>
