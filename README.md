@@ -1,7 +1,7 @@
 # Fluke8588A-pyvisa
 A Python library and GUI (in development for INRIM) to control the Fluke 8588A high‑precision digitizer / DMM through pyvisa.
 
-Tested over USB and GPIB, on Windows with firmware 1.32. Ethernet is not tested yet.
+Tested over USB and GPIB, on Windows with firmware 1.32. 
 
 <img width="675" height="221" alt="image" src="https://github.com/user-attachments/assets/8736ae4a-2fa0-4576-852b-eaea4142c8ef" />
 
